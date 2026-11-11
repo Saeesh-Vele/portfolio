@@ -38,6 +38,15 @@ No script or config may depend on the folder path. Package name: `saeesh-portfol
 Tokens live in `src/app/globals.css` (`@theme`). Utility classes: `.label` (mono readout),
 `.display` (display heading), `.reveal` / `.reveal-line` (masked line reveal), `.hairline`.
 
+### Breakpoint layout rule
+
+When an element's grid placement differs between breakpoints, set it with longhand utilities
+only and state every breakpoint explicitly: `col-start-*` + `col-end-*`, never `col-span-*`.
+`col-span-*` sets the `grid-column` shorthand, so `md:col-span-4` silently resets a base
+`col-start-1` and the element is auto-placed (into implicit columns when rows are stacked).
+Items that share a grid row on purpose (stacked panels) always get an explicit column start
+and end at every breakpoint. See `PANEL_PLACEMENT` in `src/components/sections/Experience.tsx`.
+
 ## BANNED (these make sites look AI-generated)
 
 Purple/blue gradients · glassmorphism/frosted cards · neon glows · rounded card grids with drop
@@ -72,7 +81,19 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
 5. Scroll velocity → particle energy: smoothed scroll velocity feeds a shader uniform
    (`uEnergy`) that adds turbulence and slight point stretching along the motion direction; it
    calms back to rest when scrolling stops.
-6. Readability rule: 3D intensity peaks BETWEEN sections and calms down while text is being
+6. Per-particle formation data (Phase 2): a formation may return `{ positions, aux }` instead of
+   a bare `Float32Array`. `aux` is 4 floats per particle, bound as `aFromAux` / `aToAux`; `aux.w`
+   selects a behaviour in the vertex shader's `place()` function (values in `AUX_KIND`,
+   `src/lib/constants.ts`): `0` plain target · `1..8` STATS column, rains in and stacks as
+   `uRise[column]` runs 0→1 · `10` PIPELINE flow, travels along the path texture `uPath` by curve
+   parameter + `uTime` · `11..18` PIPELINE station, loops upstream until `uStation[i]` assembles
+   it into its ring. Both ends of a morph are placed, then mixed by the morph progress. A new
+   behaviour = a new `aux.w` range + a branch in `place()`.
+7. Time-driven values that must stay in sync with the DOM are written to `frame` by the DOM
+   side and copied to uniforms in `ParticleField` (`frame.statsRise` is written by the same tween
+   as the stat counters). Scroll-driven ones are derived from `sectionAt(timeline, id, progress)`
+   (`stationLevels` in `experience.config.ts`).
+8. Readability rule: 3D intensity peaks BETWEEN sections and calms down while text is being
    read. Text panels always stay legible (contrast ≥ 4.5:1); particles behind text can dim
    locally.
 
@@ -92,6 +113,10 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
 | Lenis, ScrollTrigger, measuring, pointer | `src/components/ui/SiteRuntime.tsx` |
 | Pinned chapter wrapper | `src/components/ui/ScrollChapter.tsx` |
 | Reactive state (zustand) + per-frame values | `src/store/site.ts` |
+| Pipeline path (three-free: shader texture, formation, camera) | `src/lib/pipelinePath.ts` |
+| STATS ↔ DOM grid alignment | `src/lib/statsLayout.ts` |
+| Line-by-line masked reveal (SplitText) | `src/lib/lineReveal.ts` |
+| Performance overlay (`?debug=1` only) | `src/components/ui/DebugGate.tsx` → `DebugOverlay.tsx` |
 
 ### How to add a section (later phases)
 
@@ -105,6 +130,13 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
      section's `hold[1]` and this section's `hold[0]`, so intensity peaks between sections.
    - `dim` — 0..1 particle dimming while this section's text is being read.
    - `keyframes(viewport)` — camera keyframes `{ at, position, target, fov }`.
+   - `extraHolds` (optional) — further formations held later in the same span, in order
+     (the hero holds `name`, then `noise`).
+   - `reducedKeyframes(viewport)` (optional) — used instead of `keyframes` with
+     prefers-reduced-motion, where chapters are not pinned. Usually one static view.
+   - `anchor(viewport)` (optional) — the point in the span (0..1) where nav links land, so a
+     link into a pinned chapter arrives where its content is readable, not at its empty start.
+     `scrollToSection` in `src/lib/scroll.ts` applies it; it is ignored with reduced motion.
 3. Append it to `SECTIONS` in `src/lib/sections.ts` in page order.
 4. Render the DOM section with `data-section="<id>"` (plain `<section>` or `<ScrollChapter>`).
 
@@ -113,11 +145,23 @@ section's top hits the viewport top" (`at = 1`). For `<ScrollChapter length={L}>
 pinned for `at ∈ [0, L / (1 + L)]`. Spans are measured from the DOM, so changing a section's
 height never requires touching another section's config.
 
+Camera holds and pauses: the camera path is one CatmullRom spline, so a hold needs repeated
+keyframes. Four keyframes with the same position (two at each end of the hold) make the
+stretch between the middle two perfectly still — use this where the 3D must stay aligned with
+the DOM (the STATS settle). Two keyframes slightly apart give a slow creep — use this where a
+pause should still feel alive (pipeline stations).
+
+`<ScrollChapter>` takes `length` / `mobileLength` (the height is CSS-driven, so there is no
+layout shift at the breakpoint) and `reducedFallback`, a normal-flow version rendered inside
+the same stage element with reduced motion. Its element tree must stay identical in both
+modes: GSAP re-parents the pinned stage, so React must never remove or replace the stage.
+
 Per-frame values (smoothed progress, energy, pointer) live in the mutable `frame` object in
 `src/store/site.ts` and are read inside `useFrame` — never put them in React state.
 
 ## Planned 3D moments (build only when that phase asks)
 
+- NUMBERS and EXPERIENCE below are built (Phase 2).
 - HERO (Phase 1, built): particles assemble into "SAEESH VELE"; on scroll the camera pushes
   THROUGH the name.
 - NUMBERS: particles rain down and stack into 3D bar columns; camera orbits ~30° while counters
@@ -147,6 +191,12 @@ Per-frame values (smoothed progress, energy, pointer) live in the mutable `frame
 - Real DOM text for everything (SEO + screen readers). The particle name is decorative
   (`aria-hidden`); there is a real `h1`.
 - Lighthouse targets: Performance ≥85 on mobile, Accessibility ≥95.
+
+Section configs are imported by the initial bundle (`SiteRuntime`), so they and anything they
+import must not import three.js.
+
+Measuring: open the site with `?debug=1` for a corner readout of frame time, FPS, particle
+tier, active formation and DPR. Measure on real devices, not headless Chrome.
 
 ## Workflow
 

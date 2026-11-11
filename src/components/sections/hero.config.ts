@@ -13,6 +13,8 @@ export const heroSection: SectionDef = {
   formation: "name",
   hold: [0, 0.3],
   dim: 0,
+  // Past the name the particles are raw noise again, before the next section claims them.
+  extraHolds: [{ formation: "noise", hold: [0.58, 0.64], dim: 0 }],
   keyframes: (viewport) => {
     const { centerY } = nameLayout(viewport);
     return [

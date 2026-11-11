@@ -1,11 +1,13 @@
+import { About } from "@/components/sections/About";
+import { Experience } from "@/components/sections/Experience";
 import { Hero } from "@/components/sections/Hero";
-import { NumbersPlaceholder } from "@/components/sections/NumbersPlaceholder";
 
 export default function Home() {
   return (
     <main id="main">
       <Hero />
-      <NumbersPlaceholder />
+      <About />
+      <Experience />
     </main>
   );
 }

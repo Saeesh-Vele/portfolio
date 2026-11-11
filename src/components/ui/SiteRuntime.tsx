@@ -115,7 +115,9 @@ export function SiteRuntime() {
         spans.push({ id: section.id, top: rect.top + window.scrollY, height: rect.height });
       }
       const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-      useSite.getState().setTimeline(buildTimeline(SECTIONS, spans, maxScroll, viewport));
+      useSite.getState().setTimeline(
+        buildTimeline(SECTIONS, spans, maxScroll, viewport, reducedMotion),
+      );
       readScroll();
     };
     const schedule = () => {

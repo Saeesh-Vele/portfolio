@@ -1,3 +1,5 @@
+import { AUX_KIND, MAX_STATIONS, MAX_STATS } from "@/lib/constants";
+import { STATION } from "@/lib/pipelinePath";
 import { curlNoiseGLSL } from "@/shaders/noise";
 
 /**
@@ -9,6 +11,11 @@ import { curlNoiseGLSL } from "@/shaders/noise";
  *   - curl-noise drift, strongest mid-morph and while scrolling (uEnergy), calm at rest
  *   - pointer repulsion around the pointer ray (scatter-and-heal)
  *   - size + alpha falloff by depth so particles can fly past the camera
+ *
+ * Formations can also give each particle a behaviour (aFromAux / aToAux, see FormationData):
+ *   - STATS columns rain in from above and stack, layer by layer, as uRise[column] runs 0 → 1
+ *   - PIPELINE flow particles travel along the path texture (curve parameter + uTime)
+ *   - PIPELINE station particles loop in the flow until uStation[i] assembles them into a ring
  */
 export const particleVertex = /* glsl */ `
 uniform float uTime;
@@ -25,8 +32,16 @@ uniform float uPointerRadius;
 uniform vec3 uRayOrigin;
 uniform vec3 uRayDir;
 
+uniform highp sampler2D uPath;
+uniform float uPathSamples;
+uniform float uFlow;
+uniform float uRise[${MAX_STATS}];
+uniform float uStation[${MAX_STATIONS}];
+
 attribute vec3 aFrom;
 attribute vec3 aTo;
+attribute vec4 aFromAux;
+attribute vec4 aToAux;
 attribute vec4 aSeed;
 
 varying float vAlpha;
@@ -36,11 +51,78 @@ varying vec2 vDir;
 
 ${curlNoiseGLSL}
 
+// Point on the pipeline path (row 0 of uPath) plus its cross-section frame (row 1 = normal).
+vec3 pathPoint(float t, out vec3 normal, out vec3 binormal) {
+  float f = clamp(t, 0.0, 1.0) * (uPathSamples - 1.0);
+  float i0 = min(floor(f), uPathSamples - 2.0);
+  float fr = f - i0;
+  int i = int(i0);
+  vec3 p0 = texelFetch(uPath, ivec2(i, 0), 0).xyz;
+  vec3 p1 = texelFetch(uPath, ivec2(i + 1, 0), 0).xyz;
+  vec3 n0 = texelFetch(uPath, ivec2(i, 1), 0).xyz;
+  vec3 n1 = texelFetch(uPath, ivec2(i + 1, 1), 0).xyz;
+  normal = normalize(mix(n0, n1, fr));
+  binormal = cross(normalize(p1 - p0), normal);
+  return mix(p0, p1, fr);
+}
+
+// Where a particle of one formation actually is, given its behaviour (aux.w).
+// fx.x = alpha multiplier, fx.y = brightness boost, fx.z = accent.
+vec3 place(vec3 base, vec4 aux, out vec3 fx) {
+  fx = vec3(1.0, 0.0, 0.0);
+  float kind = aux.w;
+  if (kind < 0.5) return base;
+
+  if (kind < ${AUX_KIND.flow - 0.5}) {
+    // STATS column: this layer lands once the column's rise reaches its height.
+    float rise = uRise[int(kind - ${AUX_KIND.statsColumn - 0.5})];
+    float land = smoothstep(aux.x * 0.86, aux.x * 0.86 + 0.14, rise);
+    fx.x = smoothstep(0.0, 0.3, land);
+    return base + vec3(0.0, (1.0 - land * land) * (4.0 + 7.0 * aux.y), 0.0);
+  }
+
+  // PIPELINE: flow along the path. A few faster, brighter particles read as data packets.
+  float h = fract(aux.y * 7.31 + aux.z * 91.7);
+  float packet = step(0.93, h);
+  float speed = uFlow * (0.55 + 0.9 * h) * (1.0 + 1.6 * packet);
+  float station = kind - ${AUX_KIND.station.toFixed(1)};
+  float t;
+  float fade;
+  if (station < -0.5) {
+    t = fract(aux.x + uTime * speed);
+    fade = smoothstep(0.0, 0.04, t) * (1.0 - smoothstep(0.96, 1.0, t));
+  } else {
+    // Station particles circulate just upstream of their station until it assembles.
+    float loop = fract(h * 13.0 + uTime * speed * 5.0);
+    t = aux.x + loop * ${STATION.loopSpan.toFixed(3)};
+    fade = smoothstep(0.0, 0.15, loop) * (1.0 - smoothstep(0.85, 1.0, loop));
+  }
+  vec3 normal;
+  vec3 binormal;
+  vec3 flowPos = pathPoint(t, normal, binormal);
+  flowPos += (cos(aux.y) * normal + sin(aux.y) * binormal) * aux.z;
+  fx.x = fade;
+  fx.y = packet * 0.9;
+  if (station < -0.5) return flowPos;
+
+  float level = uStation[int(station + 0.5)];
+  float a = smoothstep(h * 0.5, h * 0.5 + 0.5, level);
+  fx.x = mix(fade, 1.0, a);
+  fx.y = mix(fx.y, 1.0, a);
+  fx.z = a * step(0.8, fract(h * 29.0));
+  return mix(flowPos, base, a);
+}
+
 void main() {
   // --- formation morph, staggered per particle
   float delay = aSeed.w * 0.45;
   float p = smoothstep(delay, delay + 0.55, uProgress);
-  vec3 pos = mix(aFrom, aTo, p);
+  vec3 fxFrom;
+  vec3 fxTo;
+  vec3 fromPos = place(aFrom, aFromAux, fxFrom);
+  vec3 toPos = place(aTo, aToAux, fxTo);
+  vec3 pos = mix(fromPos, toPos, p);
+  vec3 fx = mix(fxFrom, fxTo, p);
   float mid = sin(p * 3.14159265);
 
   // --- intro: assemble out of raw noise
@@ -68,9 +150,10 @@ void main() {
   float depth = -mv.z;
 
   // --- size attenuation
-  vAccent = step(0.94, aSeed.x);
+  vAccent = max(step(0.94, aSeed.x), fx.z);
   float variation = mix(0.7, 1.45, fract(aSeed.y * 13.7));
   float size = uSize * variation * (1.0 + 0.35 * vAccent) * uScale / max(depth, 0.05);
+  size *= 1.0 + 0.3 * fx.y;
   size *= 1.0 + uEnergy * 0.9;
   float clamped = clamp(size, 1.0, uMaxSize);
   gl_PointSize = clamped;
@@ -82,6 +165,7 @@ void main() {
   // Sub-pixel points keep their energy instead of popping to a full pixel.
   float coverage = clamp(size, 0.35, 1.0);
   vAlpha = base * nearFade * farFade * coverage * mix(1.0, 0.4, uDim);
+  vAlpha = min(1.0, vAlpha * fx.x * (1.0 + 0.9 * fx.y));
 
   // Screen-space direction away from the centre = apparent motion while the camera travels.
   vec2 ndc = gl_Position.xy / max(gl_Position.w, 0.0001);

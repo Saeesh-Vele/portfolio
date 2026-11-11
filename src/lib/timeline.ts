@@ -23,6 +23,8 @@ export interface Timeline {
   targets: Vec3[];
   fovs: number[];
   holds: FormationHold[];
+  /** Global progress of each section's span start/end. Not clamped: may exceed 0..1. */
+  spans: { id: string; start: number; end: number }[];
 }
 
 export interface FormationState {
@@ -43,15 +45,33 @@ export function buildTimeline(
   spans: SectionSpan[],
   maxScroll: number,
   viewport: Viewport,
+  reducedMotion = false,
 ): Timeline {
   const toProgress = (px: number) => (maxScroll > 0 ? clamp01(px / maxScroll) : 0);
-  const timeline: Timeline = { stops: [], positions: [], targets: [], fovs: [], holds: [] };
+  const timeline: Timeline = {
+    stops: [],
+    positions: [],
+    targets: [],
+    fovs: [],
+    holds: [],
+    spans: [],
+  };
 
   for (const section of sections) {
     const span = spans.find((s) => s.id === section.id);
     if (!span) continue;
 
-    for (const keyframe of section.keyframes(viewport)) {
+    timeline.spans.push({
+      id: section.id,
+      start: maxScroll > 0 ? span.top / maxScroll : 0,
+      end: maxScroll > 0 ? (span.top + span.height) / maxScroll : 0,
+    });
+
+    const keyframes =
+      reducedMotion && section.reducedKeyframes
+        ? section.reducedKeyframes(viewport)
+        : section.keyframes(viewport);
+    for (const keyframe of keyframes) {
       const stop = toProgress(span.top + keyframe.at * span.height);
       const last = timeline.stops[timeline.stops.length - 1];
       // Keyframes that collapse onto the previous stop (e.g. past the end of the page) are
@@ -63,15 +83,31 @@ export function buildTimeline(
       timeline.fovs.push(keyframe.fov);
     }
 
-    timeline.holds.push({
-      name: section.formation,
-      start: toProgress(span.top + section.hold[0] * span.height),
-      end: toProgress(span.top + section.hold[1] * span.height),
-      dim: section.dim,
-    });
+    const holds = [
+      { formation: section.formation, hold: section.hold, dim: section.dim },
+      ...(section.extraHolds ?? []),
+    ];
+    for (const { formation, hold, dim } of holds) {
+      timeline.holds.push({
+        name: formation,
+        start: toProgress(span.top + hold[0] * span.height),
+        end: toProgress(span.top + hold[1] * span.height),
+        dim,
+      });
+    }
   }
 
   return timeline;
+}
+
+/**
+ * Global progress → position inside one section's scroll span (the `at` used by keyframes).
+ * Below 0 before the section, above 1 after it. Returns null if the section isn't measured.
+ */
+export function sectionAt(timeline: Timeline, id: string, progress: number): number | null {
+  const span = timeline.spans.find((s) => s.id === id);
+  if (!span || span.end - span.start < 1e-6) return null;
+  return (progress - span.start) / (span.end - span.start);
 }
 
 /** Index of the keyframe segment containing `progress`, plus the 0..1 position inside it. */

@@ -44,11 +44,18 @@ export interface MoreWorkItem {
 export interface Experience {
   slug: string;
   company: string;
+  /** Short name used on the pipeline station panels. */
+  station: string;
   role: string;
   start: string;
   end: string;
   mode: string;
+  /** The two strongest bullets, from the resume. */
   bullets: string[];
+  /** Per-role stack line, as given by Saeesh from the resume. */
+  stack: string[];
+  /** The role held today. */
+  current?: boolean;
 }
 
 export interface Education {
@@ -66,8 +73,20 @@ export interface SkillGroup {
 }
 
 export interface Stat {
+  /** Final text, rendered on the server and with reduced motion. */
   value: string;
   label: string;
+  /** Optional second line of context under the label. */
+  note?: string;
+  /** How the count-up animates towards `value`. */
+  count: {
+    to: number;
+    decimals?: number;
+    prefix?: string;
+    suffix?: string;
+    /** Render as an ordinal (1st, 2nd, 3rd). */
+    ordinal?: boolean;
+  };
 }
 
 export interface Achievement {
@@ -85,7 +104,8 @@ export interface Certification {
 
 export interface NavLink {
   label: string;
-  href: string;
+  /** Section id: the `data-section` value the link scrolls to. */
+  id: string;
 }
 
 // ---------------------------------------------------------------------------------------
@@ -120,7 +140,7 @@ export const contact = {
 } as const;
 
 // ---------------------------------------------------------------------------------------
-// Chrome: nav, loader, hero, placeholder
+// Chrome: nav, loader, hero
 // ---------------------------------------------------------------------------------------
 
 export const a11y = {
@@ -131,14 +151,20 @@ export const a11y = {
 
 export const nav = {
   homeLabel: "Saeesh Vele — back to top",
+  /** Page order. Links whose section is not built yet render as unavailable. */
   links: [
-    { label: "Work", href: "#work" },
-    { label: "Experience", href: "#experience" },
-    { label: "About", href: "#about" },
-    { label: "Contact", href: "#contact" },
+    { label: "About", id: "about" },
+    { label: "Experience", id: "experience" },
+    { label: "Work", id: "work" },
+    { label: "Contact", id: "contact" },
   ] satisfies NavLink[],
   resumeLabel: "Resume",
   ariaLabel: "Primary",
+  menu: {
+    open: "Menu",
+    close: "Close",
+    ariaLabel: "Site menu",
+  },
 } as const;
 
 export const loader = {
@@ -162,7 +188,7 @@ export const hero = {
     "5 internships · 1,000+ users · 3rd of 1,000+ teams.",
   ],
   cta: {
-    work: { label: "View work", target: "numbers" },
+    work: { label: "View work", target: "about" },
     resume: { label: "Resume", glyph: "↓", href: site.resumePath },
   },
   hud: {
@@ -177,22 +203,50 @@ export const hero = {
   scrollCue: "SCROLL",
 } as const;
 
-export const placeholderSection = {
-  id: "numbers",
-  label: "02 / NUMBERS — NEXT PHASE",
+// ---------------------------------------------------------------------------------------
+// About + numbers
+// ---------------------------------------------------------------------------------------
+
+export const about = {
+  label: "02 / ABOUT",
+  heading: "About",
+  /**
+   * REVIEW ME (saeesh): written from the facts in this file only. `emphasis` parts are set
+   * in Instrument Serif italic.
+   */
+  bio: [
+    {
+      text: "I'm a final-year Computer Engineering student in Mumbai. I started with scrapers and overnight data pipelines, moved into analytics and KPI dashboards, then built LLM-powered products used by 1,000+ students. Today I work on the ",
+    },
+    { text: "training data", emphasis: true },
+    { text: " behind robotics AI: annotating sensor data and evaluating LLM outputs." },
+  ] as { text: string; emphasis?: boolean }[],
+  educationLabel: "EDUCATION",
+  educationLine: [
+    "B.E. Computer Engineering",
+    "Saraswati College of Engineering (University of Mumbai)",
+    "2023–2027",
+    "CGPA 9.1",
+  ],
 } as const;
 
-// ---------------------------------------------------------------------------------------
-// Numbers (Phase 2)
-// ---------------------------------------------------------------------------------------
-
 export const stats: Stat[] = [
-  { value: "5", label: "internships" },
-  { value: "1.5+", label: "years across them" },
-  { value: "1,000+", label: "students using what I built" },
-  { value: "3rd", label: "of 1,000+ teams, NexBuildOn Hack 2026" },
-  { value: "9.1", label: "CGPA out of 10" },
-  { value: "~8", label: "hours per week saved at Exide" },
+  { value: "5", label: "internships", count: { to: 5 } },
+  { value: "1.5+", label: "years experience", count: { to: 1.5, decimals: 1, suffix: "+" } },
+  { value: "1,000+", label: "students used my work", count: { to: 1000, suffix: "+" } },
+  {
+    value: "3rd",
+    label: "of 1,000+ teams",
+    note: "NexBuildOn Hack 2026",
+    count: { to: 3, ordinal: true },
+  },
+  { value: "9.1", label: "CGPA", count: { to: 9.1, decimals: 1 } },
+  {
+    value: "~8",
+    label: "hrs/week saved by automation",
+    note: "Exide",
+    count: { to: 8, prefix: "~" },
+  },
 ];
 
 // ---------------------------------------------------------------------------------------
@@ -203,6 +257,7 @@ export const experience: Experience[] = [
   {
     slug: "autonex",
     company: "Autonex AI 360 Pvt. Ltd.",
+    station: "Autonex AI",
     role: "Robotics Annotator Intern",
     start: "Sep 2026",
     end: "Present",
@@ -211,10 +266,13 @@ export const experience: Experience[] = [
       "Annotate robotics sensor data (images, video, LiDAR) on Encord to train and evaluate robotic perception and control models, including object-handling and simulation workflows.",
       "Evaluate LLM explanations of time-series sensor data (HVAC, atmospheric CO2, wearable physiology, EKG) claim by claim for physical correctness, and write gold-standard reference explanations.",
     ],
+    stack: ["Encord", "LiDAR / image / video annotation", "LLM evaluation"],
+    current: true,
   },
   {
     slug: "brainheaters",
     company: "BrainHeaters",
+    station: "BrainHeaters",
     role: "AI Full Stack Developer Intern",
     start: "Jun 2026",
     end: "Aug 2026",
@@ -223,10 +281,12 @@ export const experience: Experience[] = [
       "Architected a hybrid recommendation engine (rule-based categorization + DeepSeek LLM) for personalized study suggestions on an EdTech platform (Next.js, TypeScript, MongoDB) used by 1,000+ students during peak exam season, with caching and analytics logging.",
       "Built an interactive DSA learning platform with a flowchart roadmap, XP system, LLM path generator (OpenRouter), a 16-pattern algorithm visualizer and an AI complexity analyzer.",
     ],
+    stack: ["Next.js", "TypeScript", "MongoDB", "DeepSeek", "OpenRouter"],
   },
   {
     slug: "exide",
     company: "Exide Industries Ltd., Taloja",
+    station: "Exide Industries",
     role: "Software Developer Intern",
     start: "Dec 2025",
     end: "May 2026",
@@ -235,10 +295,12 @@ export const experience: Experience[] = [
       "Built internal tools for production data and inventory tracking at a large-scale battery manufacturing plant.",
       "Automated Python and SQL reporting pipelines for production, vendor dispatch and QC metrics, replacing manual spreadsheet reports and saving ~8 hours per week; built KPI dashboards used by production, QA and logistics teams.",
     ],
+    stack: ["Python", "SQL", "KPI dashboards"],
   },
   {
     slug: "labmentix",
     company: "Labmentix",
+    station: "Labmentix",
     role: "Data Analytics Intern",
     start: "Jul 2025",
     end: "Nov 2025",
@@ -247,10 +309,12 @@ export const experience: Experience[] = [
       "Delivered end-to-end analytics (cleaning, EDA, reporting) across multiple projects on retail datasets of 100K+ records each using Python (Pandas, NumPy) and SQL.",
       "Classified and structured product data to client-specific taxonomies using RegEx-based tagging.",
     ],
+    stack: ["Python", "Pandas", "NumPy", "SQL", "RegEx"],
   },
   {
     slug: "goperceptive",
     company: "GoPerceptive Technologies LLP",
+    station: "GoPerceptive",
     role: "Software Developer Intern",
     start: "Feb 2025",
     end: "Jun 2025",
@@ -259,8 +323,23 @@ export const experience: Experience[] = [
       "Built Scrapy and Selenium pipelines that ran unattended overnight to collect 50,000+ product records per run from multiple e-commerce platforms.",
       "Cleaned, validated and mapped scraped data to client categories with RegEx, reducing manual processing.",
     ],
+    stack: ["Python", "Scrapy", "Selenium", "RegEx"],
   },
 ];
+
+/** Oldest first: the order the pipeline stations are visited in. */
+export const experienceChronological: Experience[] = [...experience].reverse();
+
+export const experienceSection = {
+  label: "03 / EXPERIENCE",
+  heading: "Experience",
+  /** Readout prefix: "STATION 03 / 05". */
+  stationLabel: "STATION",
+  /** Tag carried by the current station. */
+  nowTag: "NOW",
+  stackLabel: "STACK",
+  periodSeparator: "—",
+} as const;
 
 export const education: Education[] = [
   {

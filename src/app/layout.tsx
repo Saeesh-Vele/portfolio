@@ -3,6 +3,7 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Instrument_Serif } from "next/font/google";
 import { CanvasRoot } from "@/components/canvas/CanvasRoot";
+import { DebugGate } from "@/components/ui/DebugGate";
 import { Loader } from "@/components/ui/Loader";
 import { Nav } from "@/components/ui/Nav";
 import { SiteRuntime } from "@/components/ui/SiteRuntime";
@@ -68,6 +69,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <SiteRuntime />
         <Loader />
         <Nav />
+        <DebugGate />
         <div className="relative z-10">{children}</div>
       </body>
     </html>

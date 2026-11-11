@@ -1,5 +1,6 @@
 import { heroSection } from "@/components/sections/hero.config";
-import { numbersSection } from "@/components/sections/numbers.config";
+import { aboutSection } from "@/components/sections/about.config";
+import { experienceSection } from "@/components/sections/experience.config";
 
 export type Vec3 = [number, number, number];
 
@@ -24,6 +25,15 @@ export interface CameraKeyframe {
   fov: number;
 }
 
+/** A formation held fully formed over part of a section's scroll span. */
+export interface FormationHoldDef {
+  /** Name in the formations registry. */
+  formation: string;
+  hold: [number, number];
+  /** 0..1 particle dimming while it is held. */
+  dim: number;
+}
+
 export interface SectionDef {
   /** Must match the `data-section` attribute on the section's root DOM element. */
   id: string;
@@ -37,7 +47,19 @@ export interface SectionDef {
   /** 0..1 particle dimming while this section is being read. */
   dim: number;
   keyframes: (viewport: Viewport) => CameraKeyframe[];
+  /**
+   * Further formations held later in the same span, in order (e.g. the hero dissolving back
+   * to noise after the name). Each morphs in from the hold before it.
+   */
+  extraHolds?: FormationHoldDef[];
+  /**
+   * Camera keyframes used instead of `keyframes` with prefers-reduced-motion, where the
+   * camera snaps between keyframes and chapters are not pinned. Usually one static view.
+   */
+  reducedKeyframes?: (viewport: Viewport) => CameraKeyframe[];
+  /** Where in the span (0..1) nav links land. Defaults to 0, the section's top. */
+  anchor?: (viewport: Viewport) => number;
 }
 
 /** Page order. Later phases append here. */
-export const SECTIONS: SectionDef[] = [heroSection, numbersSection];
+export const SECTIONS: SectionDef[] = [heroSection, aboutSection, experienceSection];

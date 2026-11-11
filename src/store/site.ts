@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { MAX_STATIONS, MAX_STATS } from "@/lib/constants";
 import type { Tier } from "@/lib/device";
 import type { Viewport } from "@/lib/sections";
 import type { Timeline } from "@/lib/timeline";
@@ -52,4 +53,15 @@ export const frame = {
   pointerY: 0,
   /** 1 while a pointer is over the page, else 0. */
   pointerActive: 0,
+  /**
+   * STATS: 0..1 rise of each bar column, written by the same tween that drives its DOM
+   * counter so the two stay in sync.
+   */
+  statsRise: new Float32Array(MAX_STATS),
+  /** PIPELINE: 0..1 assembly of each station ring, written by the particle field. */
+  stationLevels: new Float32Array(MAX_STATIONS),
+  /** Screen position (0..1, origin top-left) of the current station's tag, and its opacity. */
+  tag: { x: 0, y: 0, opacity: 0 },
+  /** Read by the ?debug=1 overlay only: what the particle field is currently rendering. */
+  debug: { formation: "", dpr: 1, particles: 0 },
 };

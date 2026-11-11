@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore, type RefObject } from "react";
 
 const REDUCED_QUERY = "(prefers-reduced-motion: reduce)";
 
@@ -31,4 +31,22 @@ export function usePageVisible(): boolean {
     () => document.visibilityState !== "hidden",
     () => true,
   );
+}
+
+/** True once `ref` has been at least `threshold` visible. Latches: it never goes back. */
+export function useSeen(ref: RefObject<Element | null>, threshold = 0.5): boolean {
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    const element = ref.current;
+    if (!element || seen) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) setSeen(true);
+      },
+      { threshold },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref, seen, threshold]);
+  return seen;
 }

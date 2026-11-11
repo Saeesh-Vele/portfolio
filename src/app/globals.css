@@ -63,6 +63,17 @@ html.lenis body {
   overflow: hidden;
 }
 
+/* Pinned chapters: (1 + length) viewports tall. See ScrollChapter.tsx. */
+.chapter {
+  height: calc((1 + var(--chapter-length-mobile, 1)) * 100svh);
+}
+
+@media (min-width: 768px) {
+  .chapter {
+    height: calc((1 + var(--chapter-length, 1)) * 100svh);
+  }
+}
+
 /* In the components layer so Tailwind utilities (text-*, bg-*) can override them. */
 @layer components {
   /* ------------------------------------------------------------------ primitives */
@@ -103,6 +114,16 @@ html.lenis body {
   }
 
   /* Local dimming behind text panels: a soft pool of background colour, not a card. */
+  /* Same idea for a full-width block at the bottom of a stage: fades in from its top edge. */
+  .scrim-rise {
+    background: linear-gradient(
+      to bottom,
+      rgba(7, 9, 12, 0),
+      rgba(7, 9, 12, 0.8) 1.25rem,
+      rgba(7, 9, 12, 0.86)
+    );
+  }
+
   .scrim {
     background: radial-gradient(
       closest-side,
@@ -144,6 +165,58 @@ html[data-loaded="true"] .reveal-line > span {
 
 html[data-loaded="true"] .fade-in {
   opacity: 1;
+}
+
+/* Lines split at runtime (useLineReveal): each sits in its own mask and slides up. */
+.split-line {
+  will-change: transform;
+}
+
+/* ------------------------------------------------------------------ experience panels */
+
+.station-panel {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s var(--ease-expo);
+}
+
+.station-panel[data-active="true"] {
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 0.6s var(--ease-expo) 0.1s;
+}
+
+/* ------------------------------------------------------------------ mobile menu */
+
+.menu {
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity 0.35s var(--ease-expo),
+    visibility 0s linear 0.35s;
+}
+
+.menu[data-open="true"] {
+  visibility: visible;
+  opacity: 1;
+  transition: opacity 0.35s var(--ease-expo);
+}
+
+.menu .menu-line {
+  display: block;
+  overflow: hidden;
+}
+
+.menu .menu-line > * {
+  display: block;
+  transform: translateY(112%);
+  transition: transform 0.3s var(--ease-expo);
+}
+
+.menu[data-open="true"] .menu-line > * {
+  transform: none;
+  transition: transform 0.9s var(--ease-expo);
+  transition-delay: calc(var(--i, 0) * 70ms + 80ms);
 }
 
 /* ------------------------------------------------------------------ loader */
@@ -196,5 +269,9 @@ html[data-loader="skip"] .loader {
   }
   .loader {
     transition: none;
+  }
+  .menu,
+  .menu .menu-line > * {
+    transition: none !important;
   }
 }

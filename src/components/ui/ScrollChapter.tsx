@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useSite } from "@/store/site";
@@ -13,6 +13,13 @@ interface ScrollChapterProps {
    * the 3D scene (camera travel, formation morphs) through the section's keyframes.
    */
   length?: number;
+  /** Pinned length below the md breakpoint. Defaults to `length`. */
+  mobileLength?: number;
+  /**
+   * Rendered instead of the pinned stage with prefers-reduced-motion: a normal-flow version
+   * of the chapter, free to be taller than one viewport.
+   */
+  reducedFallback?: ReactNode;
   /** Called with 0..1 across the pinned distance. Use it to drive DOM inside the chapter. */
   onProgress?: (progress: number) => void;
   className?: string;
@@ -24,11 +31,17 @@ interface ScrollChapterProps {
  * scroll span; the inner viewport-sized stage is pinned by GSAP ScrollTrigger for the whole
  * of it. The stage also exposes `--chapter-progress` (0..1) as a CSS variable.
  *
- * With prefers-reduced-motion the chapter collapses to a normal one-viewport section.
+ * The height comes from CSS (`.chapter` in globals.css) so the desktop / mobile lengths
+ * switch at the md breakpoint without a layout shift.
+ *
+ * With prefers-reduced-motion nothing is pinned: the chapter renders `reducedFallback` in
+ * normal flow, or collapses to a one-viewport section if there is none.
  */
 export function ScrollChapter({
   id,
   length = 1,
+  mobileLength,
+  reducedFallback,
   onProgress,
   className,
   children,
@@ -65,18 +78,30 @@ export function ScrollChapter({
       stageElement.style.removeProperty("--chapter-progress");
       progressCallback.current?.(0);
     };
-  }, [reducedMotion, length]);
+  }, [reducedMotion, length, mobileLength]);
+
+  // The element tree is identical in both modes: GSAP re-parents the pinned stage into its
+  // own wrapper, so React must never be asked to remove or replace the stage itself.
+  const fallback = reducedMotion && reducedFallback !== undefined;
 
   return (
     <section
       ref={outer}
       id={id}
       data-section={id}
-      className="relative"
-      style={reducedMotion ? undefined : { height: `${(1 + length) * 100}svh` }}
+      className={reducedMotion ? "relative" : "chapter relative"}
+      style={
+        {
+          "--chapter-length": length,
+          "--chapter-length-mobile": mobileLength ?? length,
+        } as CSSProperties
+      }
     >
-      <div ref={stage} className={`relative h-svh w-full overflow-hidden ${className ?? ""}`}>
-        {children}
+      <div
+        ref={stage}
+        className={`relative w-full ${fallback ? "" : "h-svh overflow-hidden"} ${className ?? ""}`}
+      >
+        {fallback ? reducedFallback : children}
       </div>
     </section>
   );
