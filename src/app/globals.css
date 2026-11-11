@@ -30,6 +30,8 @@
 }
 
 html {
+  /* Decorative scrims may overhang the gutters; they must never widen the page. */
+  overflow-x: clip;
   background: var(--color-bg);
   -webkit-text-size-adjust: 100%;
 }

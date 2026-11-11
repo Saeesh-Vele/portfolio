@@ -34,6 +34,12 @@ export function scrollToSection(id: string) {
   scrollToSpan(id, !reducedMotion && viewport && section?.anchor ? section.anchor(viewport) : 0);
 }
 
+/** Smooth-scrolls back to the top of the page. */
+export function scrollToTop() {
+  if (lenis) lenis.scrollTo(0, { duration: 2.4, easing: expoOut, force: true });
+  else window.scrollTo({ top: 0, behavior: "auto" });
+}
+
 /** Locks page scrolling while a full-screen overlay (the mobile menu) is open. */
 export function lockScroll(locked: boolean) {
   if (lenis) {

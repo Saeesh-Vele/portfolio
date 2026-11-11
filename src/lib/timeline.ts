@@ -34,6 +34,9 @@ export interface FormationState {
   dim: number;
 }
 
+/** Shortest scroll distance a morph between two formations may be squeezed into. */
+const MIN_MORPH_VIEWPORTS = 0.45;
+
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 /**
@@ -95,6 +98,15 @@ export function buildTimeline(
         dim,
       });
     }
+  }
+
+  // Holds are authored per section, in units of that section's height, so on some viewports
+  // one can run past the start of the next. Pull it back to leave room for the morph.
+  const gap = maxScroll > 0 ? (viewport.height * MIN_MORPH_VIEWPORTS) / maxScroll : 0;
+  for (let i = 0; i < timeline.holds.length - 1; i++) {
+    const hold = timeline.holds[i];
+    const next = timeline.holds[i + 1];
+    if (next.start - hold.end < gap) hold.end = Math.max(hold.start, next.start - gap);
   }
 
   return timeline;

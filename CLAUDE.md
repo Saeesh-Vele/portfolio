@@ -44,6 +44,8 @@ When an element's grid placement differs between breakpoints, set it with longha
 only and state every breakpoint explicitly: `col-start-*` + `col-end-*`, never `col-span-*`.
 `col-span-*` sets the `grid-column` shorthand, so `md:col-span-4` silently resets a base
 `col-start-1` and the element is auto-placed (into implicit columns when rows are stacked).
+Decorative scrims that overhang the gutters must sit inside something that clips them
+(`html` has `overflow-x: clip`): on phones an overhang widens the layout viewport.
 Items that share a grid row on purpose (stacked panels) always get an explicit column start
 and end at every breakpoint. See `PANEL_PLACEMENT` in `src/components/sections/Experience.tsx`.
 
@@ -56,6 +58,11 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
 
 ## Content rules
 
+- Skill evidence is derived, never hand-mapped: a capability shows "USED IN →" with every
+  project (featured, then `moreWork`) and role whose `stack` lists it, matched by name
+  ignoring case. A skill with no matching stack entry shows nothing. To give a skill evidence,
+  add it to the relevant `stack` in `content.ts`.
+- No skill levels, bars or percentages anywhere.
 - All copy, links and numbers live in `src/content/content.ts` (typed). Components never
   hardcode copy.
 - Never invent metrics, links, dates or outcomes. If something is unknown, put a TODO and list
@@ -89,7 +96,10 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
    parameter + `uTime` · `11..18` PIPELINE station, loops upstream until `uStation[i]` assembles
    it into its ring · `20` GRAPH node / `21` GRAPH edge, carrying a bitmask of the projects they
    belong to so `uFocus[project]` lights one project's node, edges and techs and dims the rest;
-   edge particles drift between two `uNode` positions. Both ends of a morph are placed, then mixed by the morph progress. A new
+   edge particles drift between two `uNode` positions · `30..33` CLUSTERS cluster, slides out
+   from a shared centre as `uSpread` runs 0→1 and brightens with `uClusterFocus[i]` · `40` PODIUM
+   step / `41` PODIUM numeral, which rises out of its step with `uLift` · `50` HORIZON terrain
+   point, with a very slow swell. Both ends of a morph are placed, then mixed by the morph progress. A new
    behaviour = a new `aux.w` range + a branch in `place()`.
 7. Time-driven values that must stay in sync with the DOM are written to `frame` by the DOM
    side and copied to uniforms in `ParticleField` (`frame.statsRise` is written by the same tween
@@ -119,6 +129,8 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
 | STATS ↔ DOM grid alignment | `src/lib/statsLayout.ts` |
 | Line-by-line masked reveal (SplitText) | `src/lib/lineReveal.ts` |
 | WORK graph model, derived from content (three-free) | `src/lib/workGraph.ts` |
+| World placement of CLUSTERS / PODIUM / HORIZON (three-free) | `src/lib/phase4Layout.ts` |
+| Skill evidence ("USED IN →"), derived from stacks | `src/lib/skillEvidence.ts` |
 | All-work index (plain DOM, solid background, not a 3D section) | `src/components/sections/WorkIndex.tsx` |
 | Performance overlay (`?debug=1` only) | `src/components/ui/DebugGate.tsx` → `DebugOverlay.tsx` |
 
@@ -149,6 +161,10 @@ section's top hits the viewport top" (`at = 1`). For `<ScrollChapter length={L}>
 pinned for `at ∈ [0, L / (1 + L)]`. Spans are measured from the DOM, so changing a section's
 height never requires touching another section's config.
 
+Formation holds are authored per section, in units of that section's height, so one can run
+past the next section's hold on some viewports; `buildTimeline` pulls it back to keep at least
+0.45 viewport of scroll for the morph.
+
 Camera holds and pauses: the camera path is one CatmullRom spline, so a hold needs repeated
 keyframes. Four keyframes with the same position (two at each end of the hold) make the
 stretch between the middle two perfectly still — use this where the 3D must stay aligned with
@@ -165,8 +181,17 @@ Per-frame values (smoothed progress, energy, pointer) live in the mutable `frame
 
 ## Planned 3D moments (build only when that phase asks)
 
-- NUMBERS and EXPERIENCE below are built (Phase 2); PROJECTS is built (Phase 3) as a bipartite
-  project ↔ shared-tech graph, with tech nodes derived from the featured stacks.
+- Every moment below is built (Phases 1–4). Page order: hero · about (STATS) · experience
+  (PIPELINE) · work (GRAPH) · all-work index (DOM only) · skills (CLUSTERS) · recognition
+  (PODIUM) · contact (HORIZON) · footer.
+- Featured project order, which is also the order of the WORK chapter's stops: RogRakshak,
+  ShikshaSetu, AURORA, PredictX, BH.DSA, NeuroPhysio. The graph's tech nodes, edges, stops and
+  camera keyframes are all derived from `featuredProjects`; reorder or edit stacks in
+  `content.ts` and they follow. `moreWork` items appear only in the All-work index.
+- CLUSTERS, PODIUM and HORIZON belong to normal-flow sections (not pinned): their scroll-driven
+  uniforms run on the way in (`at` < 0), from `clusterSpread` / `numeralLift` in the section
+  configs. HORIZON is the calmest state: `ParticleField` holds scroll energy and drift down
+  while it is active.
 - HERO (Phase 1, built): particles assemble into "SAEESH VELE"; on scroll the camera pushes
   THROUGH the name.
 - NUMBERS: particles rain down and stack into 3D bar columns; camera orbits ~30° while counters

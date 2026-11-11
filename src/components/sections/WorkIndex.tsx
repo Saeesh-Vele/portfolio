@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { featuredProjects, moreWork, work, type ProjectTag } from "@/content/content";
+import {
+  featuredProjects,
+  moreWork,
+  work,
+  type ProjectStatus,
+  type ProjectTag,
+} from "@/content/content";
 
 interface Row {
   title: string;
@@ -10,9 +16,11 @@ interface Row {
   stack: string[];
   repoUrl?: string;
   liveUrl?: string;
+  status?: ProjectStatus;
+  label?: string;
 }
 
-/** Featured projects first, then the rest. */
+/** Featured projects first, then the rest. The two lists are disjoint in content.ts. */
 const ROWS: Row[] = [...featuredProjects, ...moreWork];
 
 const pad = (value: number) => String(value).padStart(2, "0");
@@ -78,6 +86,13 @@ export function WorkIndex() {
               </p>
               <h3 className="col-start-3 col-end-13 row-start-1 text-[1.0625rem] font-medium tracking-[-0.02em] text-text md:col-start-2 md:col-end-5 md:text-xl">
                 {row.title}
+                {row.label || row.status === "in progress" ? (
+                  <span className="label mt-1 block font-normal">
+                    {[row.label, row.status === "in progress" ? work.status[row.status] : null]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                ) : null}
               </h3>
               <div className="col-start-3 col-end-13 md:col-start-5 md:col-end-10">
                 <p className="text-[0.8125rem] leading-[1.5] text-muted transition-colors duration-300 group-hover:text-text md:text-sm">

@@ -21,4 +21,17 @@ export const MAX_NODES = 16;
  * Values of `aux.w`, the per-particle behaviour selector read by the particle shader
  * (see FormationData in formations/index.ts). Column / station index is added to the base.
  */
-export const AUX_KIND = { statsColumn: 1, flow: 10, station: 11, graphNode: 20, graphEdge: 21 } as const;
+export const AUX_KIND = {
+  statsColumn: 1,
+  flow: 10,
+  station: 11,
+  graphNode: 20,
+  graphEdge: 21,
+  cluster: 30,
+  podium: 40,
+  podiumNumeral: 41,
+  horizon: 50,
+} as const;
+
+/** CLUSTERS: number of capability clusters the shader can focus. */
+export const MAX_CLUSTERS = 4;

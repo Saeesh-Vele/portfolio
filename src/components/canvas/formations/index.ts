@@ -1,8 +1,11 @@
 import type { Viewport } from "@/lib/sections";
+import { clusters } from "./clusters";
 import { graph } from "./graph";
+import { horizon } from "./horizon";
 import { name } from "./name";
 import { noise } from "./noise";
 import { pipeline } from "./pipeline";
+import { podium } from "./podium";
 import { stats } from "./stats";
 
 /**
@@ -16,6 +19,10 @@ import { stats } from "./stats";
  *   20       GRAPH node: x = bitmask of the projects it belongs to, y = random, z = 1 for techs
  *   21       GRAPH edge: x = project bitmask, y = position along the edge 0..1,
  *            z = start node + 16 * end node (indices into uNode)
+ *   30..33   CLUSTERS cluster (index + 30): xyz = offset back to the shared centre
+ *   40       PODIUM step (static)
+ *   41       PODIUM numeral: x = how far it rises, y = random
+ *   50       HORIZON terrain point (swells slowly in the shader)
  */
 export interface FormationData {
   positions: Float32Array;
@@ -47,3 +54,6 @@ registerFormation("name", name);
 registerFormation("stats", stats);
 registerFormation("pipeline", pipeline);
 registerFormation("graph", graph);
+registerFormation("clusters", clusters);
+registerFormation("podium", podium);
+registerFormation("horizon", horizon);

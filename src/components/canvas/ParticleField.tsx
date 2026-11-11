@@ -4,9 +4,18 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { experienceQ, stationLevels } from "@/components/sections/experience.config";
+import { numeralLift } from "@/components/sections/recognition.config";
+import { clusterSpread } from "@/components/sections/skills.config";
 import { projectFocus, workQ } from "@/components/sections/work.config";
 import { experienceChronological } from "@/content/content";
-import { COLORS, MAX_NODES, MAX_PROJECTS, MAX_STATIONS, MAX_STATS } from "@/lib/constants";
+import {
+  COLORS,
+  MAX_CLUSTERS,
+  MAX_NODES,
+  MAX_PROJECTS,
+  MAX_STATIONS,
+  MAX_STATS,
+} from "@/lib/constants";
 import { mulberry32, PARTICLE_COUNT, type Tier } from "@/lib/device";
 import { pathFrame, pipelinePath, STATION, stationU } from "@/lib/pipelinePath";
 import { SECTIONS, type Viewport } from "@/lib/sections";
@@ -152,6 +161,9 @@ function Field({ viewport, tier }: { viewport: Viewport; tier: Tier }) {
           uStation: { value: new Float32Array(MAX_STATIONS) },
           uFocus: { value: new Float32Array(MAX_PROJECTS) },
           uNode: { value: new Float32Array(MAX_NODES * 3) },
+          uClusterFocus: { value: new Float32Array(MAX_CLUSTERS) },
+          uSpread: { value: 1 },
+          uLift: { value: 1 },
           uColor: { value: new THREE.Color(COLORS.text) },
           uAccent: { value: new THREE.Color(COLORS.glacier) },
         },
@@ -182,6 +194,7 @@ function Field({ viewport, tier }: { viewport: Viewport; tier: Tier }) {
     // --- formation morph from scroll
     let pipelineWeight = 0;
     let graphWeight = 0;
+    let horizonWeight = 0;
     if (timeline) {
       const morph = formationAt(timeline, frame.progress);
       const geometry = field.geometry;
@@ -210,6 +223,9 @@ function Field({ viewport, tier }: { viewport: Viewport; tier: Tier }) {
       graphWeight =
         (morph.to === "graph" ? u.uProgress.value : 0) +
         (morph.from === "graph" ? 1 - u.uProgress.value : 0);
+      horizonWeight =
+        (morph.to === "horizon" ? u.uProgress.value : 0) +
+        (morph.from === "horizon" ? 1 - u.uProgress.value : 0);
     }
 
     // --- STATS columns rise with their DOM counters; PIPELINE stations assemble on approach
@@ -233,6 +249,22 @@ function Field({ viewport, tier }: { viewport: Viewport; tier: Tier }) {
     else projectFocus(workQ(workAt, viewport), focus);
     frame.projectFocus.set(focus);
     u.uNode.value = nodes.flat;
+
+    // --- CLUSTERS separate and the PODIUM numeral rises as their sections scroll in;
+    //     the hovered capability column's cluster eases brighter
+    const skillsAt = timeline ? sectionAt(timeline, "skills", frame.progress) : null;
+    const recognitionAt = timeline ? sectionAt(timeline, "recognition", frame.progress) : null;
+    u.uSpread.value = reducedMotion || skillsAt === null ? 1 : clusterSpread(skillsAt);
+    u.uLift.value = reducedMotion || recognitionAt === null ? 1 : numeralLift(recognitionAt);
+    const clusterFocus = u.uClusterFocus.value as Float32Array;
+    for (let i = 0; i < MAX_CLUSTERS; i++) {
+      clusterFocus[i] = THREE.MathUtils.damp(clusterFocus[i], frame.clusterHover[i], 6, dt);
+    }
+
+    // --- HORIZON is the calmest state of the field: scroll energy and drift are held down
+    const calm = Math.min(1, horizonWeight);
+    u.uEnergy.value *= 1 - 0.85 * calm;
+    u.uDrift.value *= 1 - 0.6 * calm;
     u.uPath.value = pathData.texture;
     u.uPathSamples.value = pathData.path.samples;
 

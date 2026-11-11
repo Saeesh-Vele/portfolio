@@ -19,7 +19,7 @@ function gaussian(rand: () => number) {
 }
 
 /** Rasterises the name with the display font and returns the lit pixels + their bounds. */
-function sampleText(lines: string[], fontFamily: string) {
+export function sampleText(lines: string[], fontFamily: string) {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) return null;

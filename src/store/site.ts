@@ -1,5 +1,11 @@
 import { create } from "zustand";
-import { MAX_NODES, MAX_PROJECTS, MAX_STATIONS, MAX_STATS } from "@/lib/constants";
+import {
+  MAX_CLUSTERS,
+  MAX_NODES,
+  MAX_PROJECTS,
+  MAX_STATIONS,
+  MAX_STATS,
+} from "@/lib/constants";
 import type { Tier } from "@/lib/device";
 import type { Viewport } from "@/lib/sections";
 import type { Timeline } from "@/lib/timeline";
@@ -69,6 +75,8 @@ export const frame = {
    * pixels per world unit at the node's depth. Read by the DOM labels that follow the nodes.
    */
   nodes: new Float32Array(MAX_NODES * 4),
+  /** CLUSTERS: 1 for the capability column under the pointer / last tapped, else 0. */
+  clusterHover: new Float32Array(MAX_CLUSTERS),
   /** Read by the ?debug=1 overlay only: what the particle field is currently rendering. */
   debug: { formation: "", dpr: 1, particles: 0 },
 };

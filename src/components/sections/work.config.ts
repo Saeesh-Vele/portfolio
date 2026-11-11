@@ -91,7 +91,8 @@ const add = (a: Vec3, b: Vec3, scale = 1): Vec3 => [
 export const workSection: SectionDef = {
   id: "work",
   formation: "graph",
-  hold: [0, 1],
+  // Released a little before the stage scrolls away (the pin ends at ~0.88 of the span).
+  hold: [0, 0.9],
   dim: 0.1,
   keyframes: (viewport) => {
     const mobile = viewport.isMobile;

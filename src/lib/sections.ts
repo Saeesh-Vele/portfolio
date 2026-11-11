@@ -1,3 +1,6 @@
+import { contactSection } from "@/components/sections/contact.config";
+import { recognitionSection } from "@/components/sections/recognition.config";
+import { skillsSection } from "@/components/sections/skills.config";
 import { workSection } from "@/components/sections/work.config";
 import { heroSection } from "@/components/sections/hero.config";
 import { aboutSection } from "@/components/sections/about.config";
@@ -63,4 +66,12 @@ export interface SectionDef {
 }
 
 /** Page order. Later phases append here. */
-export const SECTIONS: SectionDef[] = [heroSection, aboutSection, experienceSection, workSection];
+export const SECTIONS: SectionDef[] = [
+  heroSection,
+  aboutSection,
+  experienceSection,
+  workSection,
+  skillsSection,
+  recognitionSection,
+  contactSection,
+];

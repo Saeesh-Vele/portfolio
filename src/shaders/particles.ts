@@ -1,4 +1,11 @@
-import { AUX_KIND, MAX_NODES, MAX_PROJECTS, MAX_STATIONS, MAX_STATS } from "@/lib/constants";
+import {
+  AUX_KIND,
+  MAX_CLUSTERS,
+  MAX_NODES,
+  MAX_PROJECTS,
+  MAX_STATIONS,
+  MAX_STATS,
+} from "@/lib/constants";
 import { STATION } from "@/lib/pipelinePath";
 import { curlNoiseGLSL } from "@/shaders/noise";
 
@@ -39,6 +46,9 @@ uniform float uRise[${MAX_STATS}];
 uniform float uStation[${MAX_STATIONS}];
 uniform float uFocus[${MAX_PROJECTS}];
 uniform vec3 uNode[${MAX_NODES}];
+uniform float uClusterFocus[${MAX_CLUSTERS}];
+uniform float uSpread;
+uniform float uLift;
 
 attribute vec3 aFrom;
 attribute vec3 aTo;
@@ -74,6 +84,34 @@ vec3 place(vec3 base, vec4 aux, out vec3 fx) {
   fx = vec3(1.0, 0.0, 0.0);
   float kind = aux.w;
   if (kind < 0.5) return base;
+
+  if (kind > ${AUX_KIND.horizon - 0.5}) {
+    // HORIZON: a slow swell crossing the terrain. The calmest motion on the site.
+    float swell = sin(base.x * 0.21 + uTime * 0.11) * cos(base.z * 0.17 - uTime * 0.08);
+    return base + vec3(0.0, swell * 0.3, 0.0);
+  }
+
+  if (kind > ${AUX_KIND.podium - 0.5}) {
+    // PODIUM: the steps are static; the numeral (aux.x = rise height, aux.y = random) rises
+    // out of its step as uLift runs 0 → 1.
+    if (kind < ${AUX_KIND.podiumNumeral - 0.5}) return base;
+    float rise = smoothstep(aux.y * 0.35, aux.y * 0.35 + 0.65, uLift);
+    fx.x = smoothstep(0.0, 0.4, rise);
+    fx.y = 0.45 * rise;
+    fx.z = rise * step(0.72, aux.y);
+    return base - vec3(0.0, (1.0 - rise) * (1.0 - rise) * aux.x, 0.0);
+  }
+
+  if (kind > ${AUX_KIND.cluster - 0.5}) {
+    // CLUSTERS: aux.xyz is the offset back to the shared centre; uSpread separates them.
+    float own = uClusterFocus[int(kind - ${AUX_KIND.cluster - 0.5})];
+    float any = 0.0;
+    for (int i = 0; i < ${MAX_CLUSTERS}; i++) any = max(any, uClusterFocus[i]);
+    fx.x = mix(1.0, mix(0.4, 1.0, own), any);
+    fx.y = own * 0.45;
+    fx.z = own * step(0.86, fract(dot(base, vec3(12.9898, 78.233, 37.719))));
+    return base + aux.xyz * (1.0 - uSpread);
+  }
 
   if (kind < ${AUX_KIND.flow - 0.5}) {
     // STATS column: this layer lands once the column's rise reaches its height.

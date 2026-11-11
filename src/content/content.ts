@@ -39,10 +39,13 @@ export interface MoreWorkItem {
   title: string;
   oneLiner: string;
   stack: string[];
-  repoUrl: string;
+  repoUrl?: string;
   liveUrl?: string;
   /** REVIEW (saeesh): assigned for the All-work filters; not from the resume. */
   tags: ProjectTag[];
+  status?: ProjectStatus;
+  /** Context label, e.g. "Built at BrainHeaters". */
+  label?: string;
 }
 
 export interface Experience {
@@ -69,11 +72,6 @@ export interface Education {
   start: string;
   end: string;
   cgpa: string;
-}
-
-export interface SkillGroup {
-  label: string;
-  items: string[];
 }
 
 export interface Stat {
@@ -356,7 +354,8 @@ export const education: Education[] = [
 ];
 
 // ---------------------------------------------------------------------------------------
-// Projects — featured order: RogRakshak, ShikshaSetu, PredictX, BH.DSA, NeuroPhysio, SatQuery
+// Projects — all featured, in order: RogRakshak, ShikshaSetu, AURORA, PredictX, BH.DSA,
+// NeuroPhysio. This order is the order of the WORK chapter's stops.
 // ---------------------------------------------------------------------------------------
 
 export const projects: Project[] = [
@@ -404,6 +403,30 @@ export const projects: Project[] = [
     featured: true,
   },
   {
+    slug: "aurora",
+    title: "AURORA",
+    oneLiner:
+      "Physics-informed digital twin of India's Antarctic research stations Maitri and Bharati, driven by ERA5 reanalysis weather, with anomaly detection on the model's residuals.",
+    problem:
+      "Smart India Hackathon problem statement 26060: efficient management of remote research stations. There are no live sensor feeds from Antarctica, so the twin models each station's power, heating, water and comms systems and labels where every number comes from.",
+    built: [
+      "Physics model of each station's thermal envelope, generator, power balance, water and stores, driven by an ERA5 weather replay, with a dependency cascade across subsystems.",
+      "IsolationForest anomaly detection on the residuals between predicted and observed behaviour, plus a physics forward-run forecast (30 min to 24 h) on the live Open-Meteo forecast.",
+      "FastAPI backend streaming telemetry over WebSocket to a React and three.js 3D twin, with persisted threshold alerts and a provenance label on every value.",
+      "Voice and text operator assistant (Groq) with answers grounded in live station data; single-command Docker deploy that also runs offline.",
+    ],
+    result:
+      "Live prototype deployed on Azure. Not an operational system: equipment telemetry is model-derived and labelled as such, and anomaly detection is validated only against synthetic degradations.",
+    stack: ["React", "three.js", "FastAPI", "Python", "scikit-learn", "Groq", "SQLite", "Docker"],
+    repoUrl: "https://github.com/Saeesh-Vele/SIH2026A",
+    liveUrl: "https://aurora-sih.centralindia.cloudapp.azure.com",
+    tags: ["data", "ai", "web"],
+    status: "shipped",
+    featured: true,
+    // REVIEW (saeesh): the README names the hackathon and problem statement but not the year.
+    label: "Smart India Hackathon · Problem statement 26060",
+  },
+  {
     slug: "predictx",
     title: "PredictX — Cricket Intelligence System",
     oneLiner:
@@ -441,8 +464,7 @@ export const projects: Project[] = [
     ],
     // TODO(saeesh): no usage or outcome figure known for BH.DSA.
     result: "Built during the BrainHeaters internship, Jun–Aug 2026.",
-    // TODO(saeesh): confirm the framework/database used for BH.DSA before listing them.
-    stack: ["DeepSeek", "OpenRouter"],
+    stack: ["Next.js", "TypeScript", "MongoDB", "DeepSeek", "OpenRouter"],
     tags: ["ai", "web"],
     status: "shipped",
     featured: true,
@@ -468,44 +490,6 @@ export const projects: Project[] = [
     status: "shipped",
     featured: true,
   },
-  {
-    slug: "satquery",
-    title: "SatQuery AI",
-    oneLiner:
-      "Agentic vision-language assistant for satellite imagery: LoRA fine-tuned LLaVA-1.5-7B on EuroSAT behind a LangGraph controller.",
-    problem:
-      "Asking a plain-language question about satellite imagery and getting an answer with a trace of every step the system took.",
-    built: [
-      "LangGraph controller that classifies the question, validates it against the uploaded imagery, routes to the right model and logs an execution trace.",
-      "LoRA fine-tuned LLaVA-1.5-7B on EuroSAT (r=16, alpha=32, attention projections only).",
-      "FastAPI service streaming each step over SSE to a Next.js console; MongoDB for query history and traces.",
-    ],
-    result:
-      "In progress for Smart India Hackathon 2026. The v1 adapter proves the fine-tuning path end to end, with EuroSAT as a stand-in dataset.",
-    stack: ["Python", "LLaVA-1.5", "LoRA (PEFT)", "LangGraph", "FastAPI", "Next.js", "MongoDB"],
-    repoUrl: "https://github.com/Saeesh-Vele/SIH2026",
-    tags: ["ai", "data"],
-    status: "in progress",
-    featured: true,
-  },
-  {
-    slug: "study-recommendations",
-    title: "Study recommendation engine",
-    oneLiner:
-      "Hybrid recommendation engine (rule-based categorization + DeepSeek LLM) for personalized study suggestions on an EdTech platform.",
-    problem:
-      "Suggesting what each student should study next on an EdTech platform, personalized, during peak exam season.",
-    built: [
-      "Hybrid engine: rule-based categorization first, DeepSeek LLM for the personalized suggestions.",
-      "Dismiss controls, analytics logging and caching.",
-    ],
-    result: "Used by 1,000+ students during peak exam season.",
-    stack: ["Next.js", "TypeScript", "MongoDB", "DeepSeek"],
-    tags: ["ai", "web"],
-    status: "shipped",
-    featured: false,
-    label: "Built at BrainHeaters",
-  },
 ];
 
 export const featuredProjects = projects.filter((p) => p.featured);
@@ -523,6 +507,11 @@ export const work = {
   repoLabel: "Repo",
   liveLabel: "Live",
   linkGlyph: "↗",
+  /** Mobile bottom sheet: expand to the full case study / collapse again. */
+  more: "Read more",
+  moreGlyph: "+",
+  less: "Less",
+  lessGlyph: "−",
   /** Accessible name of a project node in the 3D graph: "Go to case study: <title>". */
   nodeLabel: "Go to case study:",
   index: {
@@ -539,16 +528,24 @@ export const work = {
   },
 } as const;
 
-/** Compact list for a later phase. Not featured, not part of the 3D project graph. */
+/** Listed in the All-work index only: not part of the 3D project graph. */
 export const moreWork: MoreWorkItem[] = [
   {
-    title: "AURORA",
+    title: "SatQuery AI",
     oneLiner:
-      "Physics-informed digital twin of India's Antarctic research stations Maitri and Bharati, driven by ERA5 reanalysis weather, with residual-based anomaly detection. A prototype for a Smart India Hackathon problem statement.",
-    stack: ["React", "three.js", "FastAPI", "Python", "Docker"],
-    repoUrl: "https://github.com/Saeesh-Vele/SIH2026A",
-    liveUrl: "https://aurora-sih.centralindia.cloudapp.azure.com",
-    tags: ["data", "web"],
+      "Agentic vision-language assistant for satellite imagery: LoRA fine-tuned LLaVA-1.5-7B on EuroSAT behind a LangGraph controller.",
+    stack: ["Python", "LLaVA-1.5", "LoRA (PEFT)", "LangGraph", "FastAPI", "Next.js", "MongoDB"],
+    repoUrl: "https://github.com/Saeesh-Vele/SIH2026",
+    tags: ["ai", "data"],
+    status: "in progress",
+  },
+  {
+    title: "Study recommendation engine",
+    oneLiner:
+      "Hybrid recommendation engine (rule-based categorization + DeepSeek LLM) for personalized study suggestions on an EdTech platform, used by 1,000+ students during peak exam season.",
+    stack: ["Next.js", "TypeScript", "MongoDB", "DeepSeek"],
+    tags: ["ai", "web"],
+    label: "Built at BrainHeaters",
   },
   {
     title: "ExamFlow AI",
@@ -578,82 +575,74 @@ export const moreWork: MoreWorkItem[] = [
 ];
 
 // ---------------------------------------------------------------------------------------
-// Skills, achievements, certifications
+// Capabilities, achievements, certifications
 // ---------------------------------------------------------------------------------------
 
-export const skills: SkillGroup[] = [
-  {
-    label: "Languages",
-    items: ["Python", "TypeScript", "JavaScript", "Java", "SQL", "HTML", "CSS"],
-  },
-  {
-    label: "Web & Backend",
-    items: [
-      "React",
-      "Next.js",
-      "Node.js",
-      "Express.js",
-      "FastAPI",
-      "REST APIs",
-      "WebSockets",
-      "Tailwind CSS",
-    ],
-  },
-  {
-    label: "AI / ML",
-    items: [
-      "LLM Integration",
-      "Prompt Engineering",
-      "LangGraph",
-      "Gemini",
-      "DeepSeek",
-      "Groq",
-      "OpenRouter",
-      "TensorFlow",
-      "Scikit-learn",
-    ],
-  },
-  {
-    label: "Data",
-    items: [
-      "Pandas",
-      "NumPy",
-      "EDA",
-      "Web Scraping (Scrapy, Selenium)",
-      "RegEx",
-      "Encord",
-      "LiDAR/Image/Video Annotation",
-      "LLM Evaluation",
-    ],
-  },
-  {
-    label: "Databases & Cloud",
-    items: [
-      "MongoDB",
-      "MySQL",
-      "Neo4j",
-      "Supabase",
-      "Firebase",
-      "Google Cloud",
-      "Vercel",
-      "Render",
-    ],
-  },
-  {
-    label: "Tools & Practices",
-    items: [
-      "Git",
-      "GitHub",
-      "Postman",
-      "Jupyter",
-      "Excel",
-      "Agile",
-      "DSA",
-      "OOP",
-      "System Design",
-    ],
-  },
-];
+export const capabilities = {
+  label: "05 / CAPABILITIES",
+  heading: "Capabilities",
+  /** `cluster` order = the order of the four particle clusters. */
+  columns: [
+    {
+      title: "Data",
+      line: "Collect, clean, analyse, label.",
+      items: [
+        "Python",
+        "Pandas",
+        "NumPy",
+        "SQL",
+        "EDA",
+        "Scrapy",
+        "Selenium",
+        "RegEx",
+        "Encord",
+        "LiDAR / image / video annotation",
+        "LLM evaluation",
+      ],
+    },
+    {
+      title: "AI",
+      line: "Put models inside products.",
+      items: [
+        "LLM integration",
+        "Prompt engineering",
+        "LangGraph",
+        "Gemini",
+        "DeepSeek",
+        "Groq",
+        "OpenRouter",
+        "TensorFlow",
+        "Scikit-learn",
+      ],
+    },
+    {
+      title: "Web",
+      line: "Ship the product.",
+      items: [
+        "TypeScript",
+        "JavaScript",
+        "React",
+        "Next.js",
+        "Node.js",
+        "Express",
+        "FastAPI",
+        "REST",
+        "WebSockets",
+        "Tailwind CSS",
+      ],
+    },
+    {
+      title: "Cloud & data stores",
+      // TODO(saeesh): no one-line description was given for this column.
+      line: undefined,
+      items: ["MongoDB", "MySQL", "Neo4j", "Supabase", "Firebase", "Google Cloud", "Vercel", "Render"],
+    },
+  ] as { title: string; line?: string; items: string[] }[],
+  also: "Also: Java, Git, Postman, Jupyter, Excel, Agile, DSA, OOP, System Design",
+  /** Evidence readout: "USED IN → RogRakshak, ShikshaSetu". */
+  evidenceLabel: "Used in",
+  evidenceGlyph: "→",
+} as const;
 
 export const achievements: Achievement[] = [
   {
@@ -667,9 +656,61 @@ export const achievements: Achievement[] = [
 export const certifications: Certification[] = [
   { name: "Microsoft Azure AI Fundamentals (AI-900)", issuer: "Microsoft", credentialUrl: undefined },
   { name: "Google Generative AI", issuer: "Google", credentialUrl: undefined },
-  { name: "Full Stack Web Dev", issuer: "100xDevs", credentialUrl: undefined },
+  { name: "Full Stack Web Development", issuer: "100xDevs", credentialUrl: undefined },
   { name: "Alpha DSA with Java", issuer: "Apna College", credentialUrl: undefined },
 ];
+
+export const recognition = {
+  label: "06 / RECOGNITION",
+  heading: "Recognition",
+  /** The numeral the particles form on the podium's third step. */
+  place: "3",
+  headline: "3rd of 1,000+ teams",
+  event: "NexBuildOn Hack 2026",
+  /** Slug of the project the placement was won with; its one-liner and case study are linked. */
+  projectSlug: "rograkshak",
+  caseLink: "RogRakshak case study",
+  caseGlyph: "→",
+  certificationsLabel: "CERTIFICATIONS",
+  credentialLabel: "Credential",
+  credentialGlyph: "↗",
+} as const;
+
+// ---------------------------------------------------------------------------------------
+// Contact + footer
+// ---------------------------------------------------------------------------------------
+
+export const contactSection = {
+  label: "07 / CONTACT",
+  /** `emphasis` parts are set in Instrument Serif italic. */
+  headline: [{ text: "Got data that should be doing " }, { text: "more?", emphasis: true }] as {
+    text: string;
+    emphasis?: boolean;
+  }[],
+  headlineText: "Got data that should be doing more?",
+  sub: "Open to roles in data, AI and full-stack engineering.",
+  actions: {
+    email: "Email",
+    whatsapp: "WhatsApp",
+    linkedin: "LinkedIn",
+    github: "GitHub",
+    resume: "Resume",
+  },
+  externalGlyph: "↗",
+  downloadGlyph: "↓",
+  copy: "Copy",
+  copied: "Copied",
+  copyAria: "Copy email address",
+  /** Readout: "MUMBAI · 18:42 IST". */
+  clockPrefix: "MUMBAI ·",
+} as const;
+
+export const footer = {
+  copyright: "© 2026 Saeesh Vele",
+  built: "Built with Next.js · Three.js · GLSL",
+  top: "Back to top",
+  topGlyph: "↑",
+} as const;
 
 // ---------------------------------------------------------------------------------------
 // Open items for Saeesh
@@ -678,10 +719,12 @@ export const certifications: Certification[] = [
 export const TODOS: string[] = [
   "OG image: design /public/og.png and set site.ogImage.",
   "RogRakshak: live URL.",
-  "BH.DSA: framework/database stack and any usage figure.",
+  "BH.DSA: any usage figure.",
   "Certifications: credential URLs.",
   "NEXT_PUBLIC_SITE_URL: set to the production domain when deployed.",
   "BH.DSA: repo and live URLs (none known).",
   "PredictX, NeuroPhysio AI, SatQuery AI: live URLs, if any exist.",
+  "AURORA: confirm the Smart India Hackathon year for its label, and review the case-study text (written from the repo README).",
+  "Capabilities: one-line description for the 'Cloud & data stores' column.",
   "moreWork tags (data / ai / web) were assigned for the All-work filters: review them.",
 ];

@@ -5,7 +5,7 @@ import gsap from "gsap";
 import { ScrollChapter } from "@/components/ui/ScrollChapter";
 import { featuredProjects, work, type Project } from "@/content/content";
 import { useLineReveal } from "@/lib/lineReveal";
-import { scrollToSpan } from "@/lib/scroll";
+import { lockScroll, scrollToSpan } from "@/lib/scroll";
 import { workGraph } from "@/lib/workGraph";
 import { frame, useSite } from "@/store/site";
 import {
@@ -227,6 +227,16 @@ export function Work() {
 
   const focused = active >= 0;
 
+  // Mobile: the sheet can expand to the full case study. Page scrolling (which drives the
+  // camera) is locked while it is open, so the sheet's own scroll is the only one.
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    if (!expanded) return;
+    lockScroll(true);
+    return () => lockScroll(false);
+  }, [expanded]);
+  const open = expanded && focused && mobile;
+
   return (
     <ScrollChapter
       id={workSection.id}
@@ -320,7 +330,40 @@ export function Work() {
               />
             ))}
           </ol>
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={() => setExpanded(true)}
+            className={`label absolute bottom-5 right-(--gutter) cursor-pointer text-text md:hidden ${
+              focused ? "pointer-events-auto" : ""
+            }`}
+          >
+            {work.more} <span aria-hidden>{work.moreGlyph}</span>
+          </button>
         </div>
+
+        {/* Mobile: the full case study, scrollable inside the expanded sheet. */}
+        {open ? (
+          <div
+            data-lenis-prevent
+            className="absolute inset-x-0 bottom-0 z-10 max-h-[calc(100svh-var(--nav-h)-1rem)] overflow-y-auto overscroll-contain border-t border-hairline bg-surface px-(--gutter) pb-6 pt-5 md:hidden"
+          >
+            <CaseStudy
+              project={featuredProjects[active]}
+              index={active}
+              split={false}
+              compact={false}
+            />
+            <button
+              type="button"
+              aria-expanded
+              onClick={() => setExpanded(false)}
+              className="label mt-6 cursor-pointer text-text"
+            >
+              {work.less} <span aria-hidden>{work.lessGlyph}</span>
+            </button>
+          </div>
+        ) : null}
       </div>
     </ScrollChapter>
   );
