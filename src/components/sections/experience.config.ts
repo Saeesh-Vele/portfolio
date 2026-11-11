@@ -74,6 +74,16 @@ const rightOf = (tangent: Vec3): Vec3 => {
 const UP: Vec3 = [0, 1, 0];
 
 /**
+ * Per-station aim corrections (desktop). `aside` = how far to the panel's side of the ring the
+ * camera aims, in ring radii (default 1.3); `lift` = vertical aim offset. Station 4's path
+ * curls back across the frame further on, so it aims wider and lower to keep the far tube
+ * out from behind its panel.
+ */
+const DESKTOP_FRAMING: Record<number, { aside: number; lift: number }> = {
+  3: { aside: 1.8, lift: -0.4 },
+};
+
+/**
  * EXPERIENCE — the camera rides the pipeline, slightly above and behind the point it is
  * looking at. At each station it slows to a creep with the ring off to one side (desktop) or
  * in the upper half (mobile), leaving the other side clear for that station's panel.
@@ -81,7 +91,8 @@ const UP: Vec3 = [0, 1, 0];
 export const experienceSection: SectionDef = {
   id: "experience",
   formation: "pipeline",
-  hold: [0.01, 1],
+  // Released as the pin ends, so the morph into the next section runs while it scrolls in.
+  hold: [0.01, 0.78],
   dim: 0.2,
   keyframes: (viewport) => {
     const path = pipelinePath(viewport.isMobile);
@@ -99,9 +110,14 @@ export const experienceSection: SectionDef = {
       const side = mobile ? 0 : panelSide(index) === "left" ? 1 : -1;
       const position = add(add(rig.position, UP, height), rightOf(rig.tangent), side * 0.55);
       // Aim away from the ring so it sits off-centre: sideways on desktop, upwards on mobile.
+      const framing = mobile ? undefined : DESKTOP_FRAMING[index];
       const target = mobile
         ? add(station.position, UP, -STATION.radius * 1.55)
-        : add(station.position, rightOf(station.tangent), -side * STATION.radius * 1.3);
+        : add(
+            add(station.position, rightOf(station.tangent), -side * STATION.radius * (framing?.aside ?? 1.3)),
+            UP,
+            framing?.lift ?? 0,
+          );
       return { at: toAt(q, viewport), position, target, fov };
     };
 
@@ -135,15 +151,17 @@ export const experienceSection: SectionDef = {
     keyframes.push(atStation(STATION_COUNT - 1, 1, 0.85));
     return keyframes;
   },
-  // Static three-quarter view over the first stations: the pipeline as a backdrop.
+  // Static view from high on the left, aimed so the whole pipeline stays in the right half
+  // of the frame, clear of the timeline list.
   reducedKeyframes: (viewport) => {
     const path = pipelinePath(viewport.isMobile);
-    const from = pathFrame(path, -0.06);
+    const from = pathFrame(path, 0);
+    const aim = pathFrame(path, 0.1);
     return [
       {
         at: 0,
-        position: add(add(from.position, UP, 2.4), rightOf(from.tangent), viewport.isMobile ? 0 : 2.2),
-        target: pathFrame(path, 0.22).position,
+        position: add(add(from.position, UP, 5), rightOf(from.tangent), viewport.isMobile ? 0 : -4),
+        target: add(aim.position, rightOf(aim.tangent), viewport.isMobile ? 0 : -2),
         fov: viewport.isMobile ? 58 : 46,
       },
     ];

@@ -1,4 +1,4 @@
-import { AUX_KIND, MAX_STATIONS, MAX_STATS } from "@/lib/constants";
+import { AUX_KIND, MAX_NODES, MAX_PROJECTS, MAX_STATIONS, MAX_STATS } from "@/lib/constants";
 import { STATION } from "@/lib/pipelinePath";
 import { curlNoiseGLSL } from "@/shaders/noise";
 
@@ -37,6 +37,8 @@ uniform float uPathSamples;
 uniform float uFlow;
 uniform float uRise[${MAX_STATS}];
 uniform float uStation[${MAX_STATIONS}];
+uniform float uFocus[${MAX_PROJECTS}];
+uniform vec3 uNode[${MAX_NODES}];
 
 attribute vec3 aFrom;
 attribute vec3 aTo;
@@ -79,6 +81,34 @@ vec3 place(vec3 base, vec4 aux, out vec3 fx) {
     float land = smoothstep(aux.x * 0.86, aux.x * 0.86 + 0.14, rise);
     fx.x = smoothstep(0.0, 0.3, land);
     return base + vec3(0.0, (1.0 - land * land) * (4.0 + 7.0 * aux.y), 0.0);
+  }
+
+  if (kind > ${AUX_KIND.graphNode - 0.5}) {
+    // GRAPH: own = focus of the projects this particle belongs to, any = is anything focused.
+    float own = 0.0;
+    float any = 0.0;
+    for (int i = 0; i < ${MAX_PROJECTS}; i++) {
+      float bit = mod(floor(aux.x / exp2(float(i))), 2.0);
+      own = max(own, bit * uFocus[i]);
+      any = max(any, uFocus[i]);
+    }
+    vec3 pos = base;
+    float edge = step(${AUX_KIND.graphEdge - 0.5}, kind);
+    if (edge > 0.5) {
+      // Drift from the project end to the tech end, keeping the particle's scatter.
+      vec3 a = uNode[int(mod(aux.z, 16.0) + 0.5)];
+      vec3 b = uNode[int(floor(aux.z / 16.0) + 0.5)];
+      float t = fract(aux.y + uTime * uFlow * (1.4 + 2.2 * fract(aux.y * 17.3)));
+      pos = mix(a, b, t) + (base - mix(a, b, aux.y));
+      fx.x = smoothstep(0.0, 0.07, t) * (1.0 - smoothstep(0.93, 1.0, t));
+    }
+    // Focused: this project's parts brighten, everything else falls back.
+    fx.x *= mix(1.0, mix(0.16, 1.0, own), any);
+    fx.y = own * mix(0.4, 0.0, edge);
+    // Accent, kept sparing: most of a lit edge or tech node, a sprinkle of the project node.
+    float sprinkle = step(mix(0.9, 0.4, aux.z), fract(aux.y * 31.0));
+    fx.z = own * mix(sprinkle, 0.7, edge);
+    return pos;
   }
 
   // PIPELINE: flow along the path. A few faster, brighter particles read as data packets.

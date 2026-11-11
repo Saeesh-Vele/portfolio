@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { MAX_STATIONS, MAX_STATS } from "@/lib/constants";
+import { MAX_NODES, MAX_PROJECTS, MAX_STATIONS, MAX_STATS } from "@/lib/constants";
 import type { Tier } from "@/lib/device";
 import type { Viewport } from "@/lib/sections";
 import type { Timeline } from "@/lib/timeline";
@@ -62,6 +62,13 @@ export const frame = {
   stationLevels: new Float32Array(MAX_STATIONS),
   /** Screen position (0..1, origin top-left) of the current station's tag, and its opacity. */
   tag: { x: 0, y: 0, opacity: 0 },
+  /** GRAPH: 0..1 focus of each project node, written by the particle field. */
+  projectFocus: new Float32Array(MAX_PROJECTS),
+  /**
+   * GRAPH: per node (projects first, then techs) x, y (0..1 from top-left), opacity, and
+   * pixels per world unit at the node's depth. Read by the DOM labels that follow the nodes.
+   */
+  nodes: new Float32Array(MAX_NODES * 4),
   /** Read by the ?debug=1 overlay only: what the particle field is currently rendering. */
   debug: { formation: "", dpr: 1, particles: 0 },
 };

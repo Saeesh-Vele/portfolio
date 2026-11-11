@@ -13,9 +13,12 @@ export const MOBILE_BREAKPOINT = 768;
 /** Sizes of the per-column / per-station uniform arrays in the particle shader. */
 export const MAX_STATS = 8;
 export const MAX_STATIONS = 8;
+/** GRAPH: project nodes that can be focused, and total nodes (projects + techs). */
+export const MAX_PROJECTS = 8;
+export const MAX_NODES = 16;
 
 /**
  * Values of `aux.w`, the per-particle behaviour selector read by the particle shader
  * (see FormationData in formations/index.ts). Column / station index is added to the base.
  */
-export const AUX_KIND = { statsColumn: 1, flow: 10, station: 11 } as const;
+export const AUX_KIND = { statsColumn: 1, flow: 10, station: 11, graphNode: 20, graphEdge: 21 } as const;

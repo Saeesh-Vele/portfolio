@@ -4,12 +4,14 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { experienceQ, stationLevels } from "@/components/sections/experience.config";
+import { projectFocus, workQ } from "@/components/sections/work.config";
 import { experienceChronological } from "@/content/content";
-import { COLORS, MAX_STATIONS, MAX_STATS } from "@/lib/constants";
+import { COLORS, MAX_NODES, MAX_PROJECTS, MAX_STATIONS, MAX_STATS } from "@/lib/constants";
 import { mulberry32, PARTICLE_COUNT, type Tier } from "@/lib/device";
 import { pathFrame, pipelinePath, STATION, stationU } from "@/lib/pipelinePath";
 import { SECTIONS, type Viewport } from "@/lib/sections";
 import { formationAt, sectionAt } from "@/lib/timeline";
+import { workGraph } from "@/lib/workGraph";
 import { particleFragment, particleVertex } from "@/shaders/particles";
 import { frame, useSite } from "@/store/site";
 import { getFormation } from "./formations";
@@ -25,6 +27,7 @@ const FLOW_SPEED = 0.016;
 
 const scratchRay = new THREE.Vector3();
 const scratchTag = new THREE.Vector3();
+const scratchNode = new THREE.Vector3();
 
 interface FormationAttributes {
   position: THREE.BufferAttribute;
@@ -98,6 +101,15 @@ function Field({ viewport, tier }: { viewport: Viewport; tier: Tier }) {
   const pathData = useMemo(() => buildPathTexture(viewport.isMobile), [viewport.isMobile]);
   useEffect(() => () => pathData.texture.dispose(), [pathData]);
 
+  /** GRAPH node centres (projects, then techs): shader uniform + source for DOM labels. */
+  const nodes = useMemo(() => {
+    const graph = workGraph(viewport.isMobile);
+    const all = [...graph.projects, ...graph.techs].slice(0, MAX_NODES);
+    const flat = new Float32Array(MAX_NODES * 3);
+    all.forEach((node, i) => flat.set(node.position, i * 3));
+    return { flat, count: all.length };
+  }, [viewport.isMobile]);
+
   /** World anchor of the "NOW" tag: inside the current station's ring, above the flow. */
   const tagAnchor = useMemo(() => {
     const stations = experienceChronological.length;
@@ -138,6 +150,8 @@ function Field({ viewport, tier }: { viewport: Viewport; tier: Tier }) {
           uFlow: { value: FLOW_SPEED },
           uRise: { value: new Float32Array(MAX_STATS) },
           uStation: { value: new Float32Array(MAX_STATIONS) },
+          uFocus: { value: new Float32Array(MAX_PROJECTS) },
+          uNode: { value: new Float32Array(MAX_NODES * 3) },
           uColor: { value: new THREE.Color(COLORS.text) },
           uAccent: { value: new THREE.Color(COLORS.glacier) },
         },
@@ -167,6 +181,7 @@ function Field({ viewport, tier }: { viewport: Viewport; tier: Tier }) {
 
     // --- formation morph from scroll
     let pipelineWeight = 0;
+    let graphWeight = 0;
     if (timeline) {
       const morph = formationAt(timeline, frame.progress);
       const geometry = field.geometry;
@@ -192,6 +207,9 @@ function Field({ viewport, tier }: { viewport: Viewport; tier: Tier }) {
       pipelineWeight =
         (morph.to === "pipeline" ? u.uProgress.value : 0) +
         (morph.from === "pipeline" ? 1 - u.uProgress.value : 0);
+      graphWeight =
+        (morph.to === "graph" ? u.uProgress.value : 0) +
+        (morph.from === "graph" ? 1 - u.uProgress.value : 0);
     }
 
     // --- STATS columns rise with their DOM counters; PIPELINE stations assemble on approach
@@ -207,6 +225,14 @@ function Field({ viewport, tier }: { viewport: Viewport; tier: Tier }) {
       else stationLevels(experienceQ(at, viewport), levels);
     }
     frame.stationLevels.set(levels);
+
+    // --- GRAPH: the project the camera is at is focused; its node, edges and techs light up
+    const focus = u.uFocus.value as Float32Array;
+    const workAt = !reducedMotion && timeline ? sectionAt(timeline, "work", frame.progress) : null;
+    if (workAt === null) focus.fill(0);
+    else projectFocus(workQ(workAt, viewport), focus);
+    frame.projectFocus.set(focus);
+    u.uNode.value = nodes.flat;
     u.uPath.value = pathData.texture;
     u.uPathSamples.value = pathData.path.samples;
 
@@ -226,6 +252,26 @@ function Field({ viewport, tier }: { viewport: Viewport; tier: Tier }) {
     (u.uRayOrigin.value as THREE.Vector3).copy(camera.position);
     (u.uRayDir.value as THREE.Vector3).copy(scratchRay);
     u.uPointer.value = s.pointer;
+
+    // --- screen position + scale of each graph node, for the DOM labels that follow them
+    const visible = Math.min(1, graphWeight);
+    const pxPerUnit = (camera.projectionMatrix.elements[5] * state.size.height) / 2;
+    for (let i = 0; i < nodes.count; i++) {
+      scratchNode.fromArray(nodes.flat, i * 3).applyMatrix4(camera.matrixWorldInverse);
+      const depth = -scratchNode.z;
+      const o = i * 4;
+      if (visible <= 0.001 || depth < 0.5) {
+        frame.nodes[o + 2] = 0;
+        continue;
+      }
+      scratchNode.applyMatrix4(camera.projectionMatrix);
+      frame.nodes[o] = scratchNode.x * 0.5 + 0.5;
+      frame.nodes[o + 1] = 0.5 - scratchNode.y * 0.5;
+      // Fades with distance like the particles do, and right in front of the lens.
+      frame.nodes[o + 2] =
+        visible * THREE.MathUtils.smoothstep(depth, 1.5, 3.5) * (1 - THREE.MathUtils.smoothstep(depth, 26, 44));
+      frame.nodes[o + 3] = pxPerUnit / depth;
+    }
 
     // --- screen position of the current station's tag, for the DOM label that follows it
     if (tagAnchor) {

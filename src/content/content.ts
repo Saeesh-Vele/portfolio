@@ -31,6 +31,8 @@ export interface Project {
   featured: boolean;
   /** Context label, e.g. "Built at BrainHeaters". */
   label?: string;
+  /** Placement line shown on the case study, e.g. a hackathon result. */
+  award?: string;
 }
 
 export interface MoreWorkItem {
@@ -39,6 +41,8 @@ export interface MoreWorkItem {
   stack: string[];
   repoUrl: string;
   liveUrl?: string;
+  /** REVIEW (saeesh): assigned for the All-work filters; not from the resume. */
+  tags: ProjectTag[];
 }
 
 export interface Experience {
@@ -188,7 +192,7 @@ export const hero = {
     "5 internships · 1,000+ users · 3rd of 1,000+ teams.",
   ],
   cta: {
-    work: { label: "View work", target: "about" },
+    work: { label: "View work", target: "work" },
     resume: { label: "Resume", glyph: "↓", href: site.resumePath },
   },
   hud: {
@@ -210,16 +214,15 @@ export const hero = {
 export const about = {
   label: "02 / ABOUT",
   heading: "About",
-  /**
-   * REVIEW ME (saeesh): written from the facts in this file only. `emphasis` parts are set
-   * in Instrument Serif italic.
-   */
+  /** Wording supplied by Saeesh. `emphasis` parts are set in Instrument Serif italic. */
   bio: [
     {
-      text: "I'm a final-year Computer Engineering student in Mumbai. I started with scrapers and overnight data pipelines, moved into analytics and KPI dashboards, then built LLM-powered products used by 1,000+ students. Today I work on the ",
+      text: "I build with data — from scrapers and overnight pipelines to analytics dashboards and LLM-powered products used by 1,000+ students. Today I work on robotics AI ",
     },
     { text: "training data", emphasis: true },
-    { text: " behind robotics AI: annotating sensor data and evaluating LLM outputs." },
+    {
+      text: " at Autonex, annotating sensor data and evaluating LLM outputs. Final-year Computer Engineering, graduating 2027.",
+    },
   ] as { text: string; emphasis?: boolean }[],
   educationLabel: "EDUCATION",
   educationLine: [
@@ -371,6 +374,7 @@ export const projects: Project[] = [
       "Supabase authentication with a closed-signup model; deployed on Vercel and Render.",
     ],
     result: "3rd place of 1,000+ teams at NexBuildOn Hack 2026.",
+    award: "3rd of 1,000+ teams · NexBuildOn Hack 2026",
     stack: ["Next.js", "FastAPI", "Neo4j", "Supabase", "LangGraph", "Gemini"],
     repoUrl: "https://github.com/Saeesh-Vele/RogRakshak",
     // TODO(saeesh): live URL (Vercel) to be sent later.
@@ -506,6 +510,35 @@ export const projects: Project[] = [
 
 export const featuredProjects = projects.filter((p) => p.featured);
 
+export const work = {
+  label: "04 / WORK",
+  heading: "Work",
+  /** Case-study index prefix: "P / 01". */
+  indexPrefix: "P",
+  status: { shipped: "Shipped", "in progress": "In progress" } satisfies Record<ProjectStatus, string>,
+  problemLabel: "Problem",
+  builtLabel: "Built",
+  resultLabel: "Result",
+  stackLabel: "Stack",
+  repoLabel: "Repo",
+  liveLabel: "Live",
+  linkGlyph: "↗",
+  /** Accessible name of a project node in the 3D graph: "Go to case study: <title>". */
+  nodeLabel: "Go to case study:",
+  index: {
+    label: "ALL WORK",
+    heading: "All work",
+    filterLabel: "Filter by tag",
+    filters: [
+      { label: "All", tag: "all" },
+      { label: "Data", tag: "data" },
+      { label: "AI", tag: "ai" },
+      { label: "Web", tag: "web" },
+    ] as { label: string; tag: ProjectTag | "all" }[],
+    empty: "Nothing under this tag.",
+  },
+} as const;
+
 /** Compact list for a later phase. Not featured, not part of the 3D project graph. */
 export const moreWork: MoreWorkItem[] = [
   {
@@ -515,6 +548,7 @@ export const moreWork: MoreWorkItem[] = [
     stack: ["React", "three.js", "FastAPI", "Python", "Docker"],
     repoUrl: "https://github.com/Saeesh-Vele/SIH2026A",
     liveUrl: "https://aurora-sih.centralindia.cloudapp.azure.com",
+    tags: ["data", "web"],
   },
   {
     title: "ExamFlow AI",
@@ -523,6 +557,7 @@ export const moreWork: MoreWorkItem[] = [
     stack: ["Next.js", "TypeScript", "Tailwind CSS", "Zustand", "Tesseract.js", "Groq"],
     repoUrl: "https://github.com/Saeesh-Vele/AI-EXAM-PLANNER",
     liveUrl: "https://ai-exam-planner-lemon.vercel.app",
+    tags: ["ai", "web"],
   },
   {
     title: "Syllabus Parser",
@@ -530,6 +565,7 @@ export const moreWork: MoreWorkItem[] = [
       "Pilot pipeline that turns Mumbai University syllabus PDFs into one structured JSON file per subject, with a validation report.",
     stack: ["Python", "pdfplumber", "TypeScript", "OpenRouter", "MongoDB"],
     repoUrl: "https://github.com/Saeesh-Vele/Syllabus-Parser",
+    tags: ["data", "ai"],
   },
   {
     title: "Ola ride analytics",
@@ -537,6 +573,7 @@ export const moreWork: MoreWorkItem[] = [
       "Analysis of Ola ride data: demand patterns, booking status and cancellations, revenue by payment method and vehicle-type utilization.",
     stack: ["Python"],
     repoUrl: "https://github.com/Saeesh-Vele/ola-ride-analytics",
+    tags: ["data"],
   },
 ];
 
@@ -644,4 +681,7 @@ export const TODOS: string[] = [
   "BH.DSA: framework/database stack and any usage figure.",
   "Certifications: credential URLs.",
   "NEXT_PUBLIC_SITE_URL: set to the production domain when deployed.",
+  "BH.DSA: repo and live URLs (none known).",
+  "PredictX, NeuroPhysio AI, SatQuery AI: live URLs, if any exist.",
+  "moreWork tags (data / ai / web) were assigned for the All-work filters: review them.",
 ];

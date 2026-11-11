@@ -186,6 +186,51 @@ html[data-loaded="true"] .fade-in {
   transition: opacity 0.6s var(--ease-expo) 0.1s;
 }
 
+/* ------------------------------------------------------------------ all-work index */
+
+/* Hairline accent underline that draws in on hover / keyboard focus. */
+.work-row::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 -1px 0;
+  height: 1px;
+  background: var(--color-glacier);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.6s var(--ease-expo);
+}
+
+.work-row:hover::after,
+.work-row:focus-within::after {
+  transform: scaleX(1);
+}
+
+/* The stack line: always shown on touch screens, revealed per row where hover exists. */
+.work-row-more {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+
+.work-row-more > span {
+  overflow: hidden;
+}
+
+@media (hover: hover) and (min-width: 768px) {
+  .work-row-more {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition:
+      grid-template-rows 0.5s var(--ease-expo),
+      opacity 0.5s var(--ease-expo);
+  }
+
+  .work-row:hover .work-row-more,
+  .work-row:focus-within .work-row-more {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+}
+
 /* ------------------------------------------------------------------ mobile menu */
 
 .menu {
@@ -273,5 +318,9 @@ html[data-loader="skip"] .loader {
   .menu,
   .menu .menu-line > * {
     transition: none !important;
+  }
+  .work-row::after,
+  .work-row-more {
+    transition: none;
   }
 }

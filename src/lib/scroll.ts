@@ -11,23 +11,27 @@ export function setLenis(instance: Lenis | null) {
 
 const expoOut = (t: number) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t));
 
-/**
- * Scrolls to the section with the given `data-section` id, landing on its `anchor` (a point
- * inside its scroll span where its content is readable) when it defines one.
- */
-export function scrollToSection(id: string) {
+/** Scrolls to position `at` (0..1) inside the scroll span of the section with this id. */
+export function scrollToSpan(id: string, at: number) {
   const element = document.querySelector<HTMLElement>(`[data-section="${id}"]`);
   if (!element) return;
-  const { viewport, reducedMotion } = useSite.getState();
-  const section = SECTIONS.find((entry) => entry.id === id);
   const rect = element.getBoundingClientRect();
-  const anchor = !reducedMotion && viewport && section?.anchor ? section.anchor(viewport) : 0;
-  const top = Math.round(rect.top + window.scrollY + anchor * rect.height);
+  const top = Math.round(rect.top + window.scrollY + at * rect.height);
   if (lenis) {
     lenis.scrollTo(top, { duration: 2.4, easing: expoOut, force: true });
   } else {
     window.scrollTo({ top, behavior: "auto" });
   }
+}
+
+/**
+ * Scrolls to the section with the given `data-section` id, landing on its `anchor` (a point
+ * inside its scroll span where its content is readable) when it defines one.
+ */
+export function scrollToSection(id: string) {
+  const { viewport, reducedMotion } = useSite.getState();
+  const section = SECTIONS.find((entry) => entry.id === id);
+  scrollToSpan(id, !reducedMotion && viewport && section?.anchor ? section.anchor(viewport) : 0);
 }
 
 /** Locks page scrolling while a full-screen overlay (the mobile menu) is open. */

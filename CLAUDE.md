@@ -87,7 +87,9 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
    `src/lib/constants.ts`): `0` plain target · `1..8` STATS column, rains in and stacks as
    `uRise[column]` runs 0→1 · `10` PIPELINE flow, travels along the path texture `uPath` by curve
    parameter + `uTime` · `11..18` PIPELINE station, loops upstream until `uStation[i]` assembles
-   it into its ring. Both ends of a morph are placed, then mixed by the morph progress. A new
+   it into its ring · `20` GRAPH node / `21` GRAPH edge, carrying a bitmask of the projects they
+   belong to so `uFocus[project]` lights one project's node, edges and techs and dims the rest;
+   edge particles drift between two `uNode` positions. Both ends of a morph are placed, then mixed by the morph progress. A new
    behaviour = a new `aux.w` range + a branch in `place()`.
 7. Time-driven values that must stay in sync with the DOM are written to `frame` by the DOM
    side and copied to uniforms in `ParticleField` (`frame.statsRise` is written by the same tween
@@ -116,6 +118,8 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
 | Pipeline path (three-free: shader texture, formation, camera) | `src/lib/pipelinePath.ts` |
 | STATS ↔ DOM grid alignment | `src/lib/statsLayout.ts` |
 | Line-by-line masked reveal (SplitText) | `src/lib/lineReveal.ts` |
+| WORK graph model, derived from content (three-free) | `src/lib/workGraph.ts` |
+| All-work index (plain DOM, solid background, not a 3D section) | `src/components/sections/WorkIndex.tsx` |
 | Performance overlay (`?debug=1` only) | `src/components/ui/DebugGate.tsx` → `DebugOverlay.tsx` |
 
 ### How to add a section (later phases)
@@ -161,7 +165,8 @@ Per-frame values (smoothed progress, energy, pointer) live in the mutable `frame
 
 ## Planned 3D moments (build only when that phase asks)
 
-- NUMBERS and EXPERIENCE below are built (Phase 2).
+- NUMBERS and EXPERIENCE below are built (Phase 2); PROJECTS is built (Phase 3) as a bipartite
+  project ↔ shared-tech graph, with tech nodes derived from the featured stacks.
 - HERO (Phase 1, built): particles assemble into "SAEESH VELE"; on scroll the camera pushes
   THROUGH the name.
 - NUMBERS: particles rain down and stack into 3D bar columns; camera orbits ~30° while counters
@@ -191,6 +196,10 @@ Per-frame values (smoothed progress, energy, pointer) live in the mutable `frame
 - Real DOM text for everything (SEO + screen readers). The particle name is decorative
   (`aria-hidden`); there is a real `h1`.
 - Lighthouse targets: Performance ≥85 on mobile, Accessibility ≥95.
+
+DOM that follows 3D points (the "NOW" tag, graph tech labels, project-node hit targets): the
+particle field projects the points each frame into `frame` (`frame.tag`, `frame.nodes`) and the
+DOM positions itself from that in a `gsap.ticker` callback — no React state, no drei `<Html>`.
 
 Section configs are imported by the initial bundle (`SiteRuntime`), so they and anything they
 import must not import three.js.

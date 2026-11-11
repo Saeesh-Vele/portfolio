@@ -1,4 +1,5 @@
 import type { Viewport } from "@/lib/sections";
+import { graph } from "./graph";
 import { name } from "./name";
 import { noise } from "./noise";
 import { pipeline } from "./pipeline";
@@ -12,6 +13,9 @@ import { stats } from "./stats";
  *   10       PIPELINE flow: x = curve parameter, y = angle round the tube, z = radius
  *   11..18   PIPELINE station (index + 11): x = start of its local loop on the curve,
  *            y / z as for flow; the target position is its place on the station ring
+ *   20       GRAPH node: x = bitmask of the projects it belongs to, y = random, z = 1 for techs
+ *   21       GRAPH edge: x = project bitmask, y = position along the edge 0..1,
+ *            z = start node + 16 * end node (indices into uNode)
  */
 export interface FormationData {
   positions: Float32Array;
@@ -42,3 +46,4 @@ registerFormation("noise", noise);
 registerFormation("name", name);
 registerFormation("stats", stats);
 registerFormation("pipeline", pipeline);
+registerFormation("graph", graph);
