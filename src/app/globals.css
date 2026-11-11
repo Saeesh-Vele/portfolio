@@ -1,0 +1,200 @@
+@import "tailwindcss";
+
+/* Design tokens — see CLAUDE.md "Design system". One accent only. */
+@theme inline {
+  --color-bg: #07090c;
+  --color-surface: #0d1117;
+  --color-hairline: rgba(255, 255, 255, 0.08);
+  --color-text: #e7e5e0;
+  --color-muted: #8a8f98;
+  --color-glacier: #8ccfdd;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --font-serif: var(--font-instrument-serif), ui-serif, Georgia, serif;
+
+  --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root {
+  --gutter: 1rem;
+  --nav-h: 3.5rem;
+  color-scheme: dark;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --gutter: 2.5rem;
+    --nav-h: 4rem;
+  }
+}
+
+html {
+  background: var(--color-bg);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  overflow-x: clip;
+}
+
+::selection {
+  background: var(--color-glacier);
+  color: var(--color-bg);
+}
+
+:focus-visible {
+  outline: 1px solid var(--color-glacier);
+  outline-offset: 3px;
+}
+
+/* Lenis */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* In the components layer so Tailwind utilities (text-*, bg-*) can override them. */
+@layer components {
+  /* ------------------------------------------------------------------ primitives */
+
+  /* Mono instrument readout */
+  .label {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    line-height: 1rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (min-width: 768px) {
+    .label {
+      font-size: 0.75rem;
+    }
+  }
+
+  .display {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    letter-spacing: -0.04em;
+    line-height: 1;
+  }
+
+  .serif-em {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+  }
+
+  .hairline {
+    background: var(--color-hairline);
+  }
+
+  /* Local dimming behind text panels: a soft pool of background colour, not a card. */
+  .scrim {
+    background: radial-gradient(
+      closest-side,
+      rgba(7, 9, 12, 0.82),
+      rgba(7, 9, 12, 0.55) 55%,
+      rgba(7, 9, 12, 0)
+    );
+  }
+}
+
+/* ------------------------------------------------------------------ reveals
+   Everything below waits for html[data-loaded="true"], set when the loader finishes
+   (or immediately, by the inline script in layout.tsx, on repeat visits). */
+
+.reveal-line {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.14em;
+  margin-bottom: -0.14em;
+}
+
+.reveal-line > span {
+  display: block;
+  transform: translateY(112%);
+  transition: transform 1.2s var(--ease-expo);
+  transition-delay: calc(var(--i, 0) * 90ms + 120ms);
+  will-change: transform;
+}
+
+html[data-loaded="true"] .reveal-line > span {
+  transform: none;
+}
+
+.fade-in {
+  opacity: 0;
+  transition: opacity 1s var(--ease-expo);
+  transition-delay: calc(var(--i, 0) * 90ms + 240ms);
+}
+
+html[data-loaded="true"] .fade-in {
+  opacity: 1;
+}
+
+/* ------------------------------------------------------------------ loader */
+
+.loader {
+  transition:
+    opacity 0.45s var(--ease-expo),
+    visibility 0s linear 0.45s;
+}
+
+.loader[data-state="done"] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+html[data-loader="skip"] .loader {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ status dot */
+
+@keyframes slow-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.pulse-dot {
+  animation: slow-pulse 3.2s ease-in-out infinite;
+}
+
+/* ------------------------------------------------------------------ reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-line > span {
+    transform: none;
+    transition: none;
+  }
+  .fade-in {
+    opacity: 1;
+    transition: none;
+  }
+  .pulse-dot {
+    animation: none;
+  }
+  .loader {
+    transition: none;
+  }
+}
