@@ -50,3 +50,16 @@ export function useSeen(ref: RefObject<Element | null>, threshold = 0.5): boolea
   }, [ref, seen, threshold]);
   return seen;
 }
+
+/** True while the media query matches. False during SSR. */
+export function useMediaQuery(query: string): boolean {
+  return useSyncExternalStore(
+    (callback) => {
+      const list = window.matchMedia(query);
+      list.addEventListener("change", callback);
+      return () => list.removeEventListener("change", callback);
+    },
+    () => window.matchMedia(query).matches,
+    () => false,
+  );
+}

@@ -1,5 +1,7 @@
 /** sessionStorage flag: the loader has already played in this tab session. */
 export const LOADER_SESSION_KEY = "sv:loader-played";
+/** sessionStorage: the particle tier adaptive quality dropped to. Never raised again. */
+export const QUALITY_SESSION_KEY = "sv:tier-cap";
 
 /** Mirrors the design tokens in globals.css for use inside WebGL. */
 export const COLORS = {

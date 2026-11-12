@@ -5,8 +5,8 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
 import { site } from "@/content/content";
-import { MOBILE_BREAKPOINT } from "@/lib/constants";
-import { deviceTier } from "@/lib/device";
+import { MOBILE_BREAKPOINT, QUALITY_SESSION_KEY } from "@/lib/constants";
+import { deviceTier, isTier } from "@/lib/device";
 import { useReducedMotion } from "@/lib/hooks";
 import { setLenis } from "@/lib/scroll";
 import { SECTIONS, type Viewport } from "@/lib/sections";
@@ -35,6 +35,14 @@ export function SiteRuntime() {
 
   // Viewport + tier. Waits for the display font so the NAME formation samples real glyphs.
   useEffect(() => {
+    // Adaptive quality already dropped a tier earlier in this session: start there.
+    try {
+      const cap = sessionStorage.getItem(QUALITY_SESSION_KEY);
+      if (isTier(cap)) useSite.getState().restoreTierCap(cap);
+    } catch {
+      // Storage unavailable: start uncapped.
+    }
+
     let cancelled = false;
     let last: Viewport | null = null;
     let timer: ReturnType<typeof setTimeout> | undefined;

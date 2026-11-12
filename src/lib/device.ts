@@ -9,6 +9,19 @@ export function deviceTier(width: number, cores: number): Tier {
   return "desktop";
 }
 
+/** Lowest first. Adaptive quality only ever moves down this list. */
+export const TIER_ORDER: readonly Tier[] = ["mobile", "mid", "desktop"];
+
+export const isTier = (value: unknown): value is Tier =>
+  typeof value === "string" && (TIER_ORDER as readonly string[]).includes(value);
+
+/** The tier one step down, or the same tier at the floor. */
+export const lowerTier = (tier: Tier): Tier => TIER_ORDER[Math.max(0, TIER_ORDER.indexOf(tier) - 1)];
+
+/** `tier`, but never above `cap`. */
+export const capTier = (tier: Tier, cap: Tier | null): Tier =>
+  cap && TIER_ORDER.indexOf(tier) > TIER_ORDER.indexOf(cap) ? cap : tier;
+
 export const PARTICLE_COUNT: Record<Tier, number> = {
   mobile: 18_000,
   mid: 30_000,

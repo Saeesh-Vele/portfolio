@@ -72,6 +72,8 @@ export function Nav() {
   }, [open]);
 
   const go = (event: MouseEvent, id: string) => {
+    // Pages without the sections (the 404) follow the link to the home page instead.
+    if (!document.querySelector(`[data-section="${id}"]`)) return;
     event.preventDefault();
     setOpen(false);
     // Let the scroll lock release before travelling.
@@ -81,7 +83,7 @@ export function Nav() {
   const link = (id: string, label: string, className: string) =>
     available(id) ? (
       <a
-        href={`#${id}`}
+        href={`/#${id}`}
         aria-current={active === id ? "location" : undefined}
         onClick={(event) => go(event, id)}
         className={`${className} transition-colors duration-300 hover:text-text ${

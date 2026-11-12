@@ -31,13 +31,7 @@ export function Hero() {
       <div ref={content} className="relative h-full">
         <h1 className="sr-only">{a11y.heroHeading}</h1>
 
-        {/* HUD — top corners */}
-        <p
-          className="label fade-in absolute left-(--gutter) top-[calc(var(--nav-h)+0.75rem)]"
-          style={stagger(6)}
-        >
-          {hero.hud.topLeft}
-        </p>
+        {/* HUD — top right. The top-left readout is the global SectionHud. */}
         <p
           className="label fade-in absolute right-(--gutter) top-[calc(var(--nav-h)+0.75rem)]"
           style={stagger(6)}

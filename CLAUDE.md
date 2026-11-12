@@ -16,8 +16,10 @@ Next.js in this repo is newer than most training data — see `AGENTS.md` and re
 Next.js (App Router) + TypeScript strict + Tailwind CSS v4 · three + @react-three/fiber +
 @react-three/drei · custom GLSL ShaderMaterial for particles · GSAP + ScrollTrigger · Lenis
 (synced to ScrollTrigger) · zustand · @react-three/postprocessing (subtle desktop bloom only,
-auto-disabled if it costs frame time) · fonts via next/font: Geist + Geist Mono (`geist`
-package) and Instrument Serif italic · npm.
+auto-disabled if it costs frame time) · fonts via next/font: Geist + Geist Mono (the `geist`
+package's variable fonts, subset by `scripts/subset-fonts.sh` into `src/app/fonts/`, loaded
+with `next/font/local` in `src/app/fonts.ts`) and Instrument Serif italic (Google, latin) ·
+all three preloaded (all appear above the fold) with `display: swap` · npm.
 
 No script or config may depend on the folder path. Package name: `saeesh-portfolio`.
 
@@ -137,6 +139,11 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
 | Skill evidence ("USED IN →"), derived from stacks | `src/lib/skillEvidence.ts` |
 | All-work index (plain DOM, solid background, not a 3D section) | `src/components/sections/WorkIndex.tsx` |
 | Performance overlay (`?debug=1` only) | `src/components/ui/DebugGate.tsx` → `DebugOverlay.tsx` |
+| Top-left section readout (scrambles to the current section's label) | `src/components/ui/SectionHud.tsx` (labels: `sectionHud` in `content.ts`) |
+| Desktop crosshair cursor | `src/components/ui/Cursor.tsx` (styles: `.crosshair` in `globals.css`) |
+| Adaptive quality governor + bloom gate | `src/components/canvas/Scene.tsx` (cap in `useSite.tierCap`) |
+| Fonts | `src/app/fonts.ts`; re-subset with `scripts/subset-fonts.sh` after adding copy with new non-Latin characters |
+| 404 (particles in pure NOISE: no sections → no holds) | `src/app/not-found.tsx` |
 
 ### How to add a section (later phases)
 
@@ -225,6 +232,16 @@ Per-frame values (smoothed progress, energy, pointer) live in the mutable `frame
   `navigator.hardwareConcurrency` in `src/lib/device.ts`). DPR clamped to [1, 1.75]. Rendering
   pauses when the tab is hidden. The canvas is dynamically imported (`ssr:false`) so text
   paints first.
+- Adaptive quality: if the average frame time stays above 22ms for 2s, the field drops one
+  tier (desktop → mid → mobile) and the bloom is turned off. It never steps back up in the
+  session: the cap lives in `useSite.tierCap` (resizes respect it) and sessionStorage
+  (reloads do too). `?debug=1` shows `ADAPT` / `BLOOM` and every drop.
+- Bundle: three, @react-three/* and postprocessing load only in the dynamically imported
+  canvas chunk (postprocessing in its own lazy chunk on top). Nothing outside
+  `src/components/canvas/` may import them. First Load JS for `/` at Phase 5b: 212 KB gzip.
+- Custom cursor: desktop pointers only (`(hover: hover) and (pointer: fine)`), never with
+  reduced motion; it takes no pointer events and the native cursor is hidden only while it
+  tracks, so selection and clicks behave as without it.
 - Mobile: same camera path and moments, fewer particles, no postprocessing.
 - `prefers-reduced-motion`: camera snaps between keyframes, no turbulence, no scroll morphs,
   no Lenis, no pinning.

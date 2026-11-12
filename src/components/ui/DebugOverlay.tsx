@@ -33,11 +33,19 @@ export default function DebugOverlay() {
       }
       if (frames >= WINDOW && output.current) {
         const average = total / frames;
-        const { tier, reducedMotion } = useSite.getState();
+        const { tier, tierCap, bloomAllowed, qualityLog, reducedMotion } = useSite.getState();
+        const bloom = !bloomAllowed
+          ? "off (adaptive)"
+          : tier !== "desktop" || reducedMotion
+            ? "off (tier)"
+            : frame.debug.bloom;
         output.current.textContent = [
           `FRAME  ${average.toFixed(1)} ms  (max ${worst.toFixed(1)})`,
           `FPS    ${(1000 / average).toFixed(0)}`,
           `TIER   ${tier}  N=${frame.debug.particles.toLocaleString("en-US")}`,
+          `ADAPT  ${tierCap ? `cap ${tierCap}` : "auto"}  slow ${frame.debug.slow.toFixed(2)}/2.00s`,
+          ...qualityLog.map((entry) => `       ${entry}`),
+          `BLOOM  ${bloom}`,
           `FORM   ${frame.debug.formation || "-"}`,
           `DPR    ${frame.debug.dpr.toFixed(2)}  (device ${window.devicePixelRatio.toFixed(2)})`,
           `SCROLL ${(frame.progress * 100).toFixed(1)}%${reducedMotion ? "  REDUCED MOTION" : ""}`,

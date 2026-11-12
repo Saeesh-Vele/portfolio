@@ -6,7 +6,7 @@ import {
   MAX_STATIONS,
   MAX_STATS,
 } from "@/lib/constants";
-import type { Tier } from "@/lib/device";
+import { capTier, lowerTier, type Tier } from "@/lib/device";
 import type { Viewport } from "@/lib/sections";
 import type { Timeline } from "@/lib/timeline";
 
@@ -23,22 +23,57 @@ interface SiteState {
   tier: Tier;
   /** Null until the sections have been measured. */
   timeline: Timeline | null;
+  /**
+   * Adaptive quality: the highest tier allowed for the rest of the session (null = no cap).
+   * Only ever lowered. `tier` is always clamped to it.
+   */
+  tierCap: Tier | null;
+  /** False once adaptive quality has dropped a tier: the bloom stays off for good. */
+  bloomAllowed: boolean;
+  /** One entry per adaptive drop, for the ?debug=1 overlay. */
+  qualityLog: string[];
   setLoaded: (loaded: boolean) => void;
   setReducedMotion: (reducedMotion: boolean) => void;
   setViewport: (viewport: Viewport, tier: Tier) => void;
   setTimeline: (timeline: Timeline) => void;
+  /** Restores a cap saved earlier in the session (before the first viewport measure). */
+  restoreTierCap: (cap: Tier) => void;
+  /** Drops one particle tier and disables bloom. Returns the new cap. */
+  downgrade: (note: string) => Tier;
 }
 
-export const useSite = create<SiteState>((set) => ({
+export const useSite = create<SiteState>((set, get) => ({
   loaded: false,
   reducedMotion: false,
   viewport: null,
   tier: "desktop",
   timeline: null,
+  tierCap: null,
+  bloomAllowed: true,
+  qualityLog: [],
   setLoaded: (loaded) => set({ loaded }),
   setReducedMotion: (reducedMotion) => set({ reducedMotion }),
-  setViewport: (viewport, tier) => set({ viewport, tier }),
+  setViewport: (viewport, tier) =>
+    set((state) => ({ viewport, tier: capTier(tier, state.tierCap) })),
   setTimeline: (timeline) => set({ timeline }),
+  restoreTierCap: (cap) =>
+    set((state) => ({
+      tierCap: cap,
+      tier: capTier(state.tier, cap),
+      bloomAllowed: false,
+      qualityLog: [...state.qualityLog, `cap ${cap} (earlier in session)`],
+    })),
+  downgrade: (note) => {
+    const state = get();
+    const cap = lowerTier(state.tier);
+    set({
+      tierCap: cap,
+      tier: cap,
+      bloomAllowed: false,
+      qualityLog: [...state.qualityLog, `${state.tier}→${cap} ${note}`],
+    });
+    return cap;
+  },
 }));
 
 /**
@@ -87,5 +122,13 @@ export const frame = {
   /** CLUSTERS: 0..1 separation of each cluster, written with the column reveals. */
   clusterSpread: new Float32Array(MAX_CLUSTERS),
   /** Read by the ?debug=1 overlay only: what the particle field is currently rendering. */
-  debug: { formation: "", dpr: 1, particles: 0 },
+  debug: {
+    formation: "",
+    dpr: 1,
+    particles: 0,
+    /** Bloom gate state: "baseline" / "trial" / "on" / "off". */
+    bloom: "-",
+    /** Seconds the frame time has stayed over budget (adaptive quality). */
+    slow: 0,
+  },
 };

@@ -154,10 +154,7 @@ export function Experience() {
       <div className="relative h-full">
         <h2 className="sr-only">{copy.heading}</h2>
 
-        {/* HUD — section label + station readout */}
-        <p className="label absolute left-(--gutter) top-[calc(var(--nav-h)+0.75rem)]">
-          {copy.label}
-        </p>
+        {/* HUD — station readout. The section label is the global SectionHud, top left. */}
         <p
           aria-hidden
           className="label absolute right-(--gutter) top-[calc(var(--nav-h)+0.75rem)] pr-3 md:pr-0"

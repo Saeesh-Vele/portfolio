@@ -1,11 +1,11 @@
 "use client";
 
-import { lazy, Suspense, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { COLORS } from "@/lib/constants";
+import { COLORS, QUALITY_SESSION_KEY } from "@/lib/constants";
 import { usePageVisible } from "@/lib/hooks";
 import { HERO_CAMERA } from "@/lib/nameLayout";
-import { useSite } from "@/store/site";
+import { frame, useSite } from "@/store/site";
 import { CameraRig } from "./CameraRig";
 import { ParticleField } from "./ParticleField";
 
@@ -19,6 +19,65 @@ const BLOOM_BUDGET_MS = 2;
 
 type BloomMode = "baseline" | "trial" | "on" | "off";
 
+/** Adaptive quality: average frame time over budget for SLOW_SECONDS drops one tier. */
+const FRAME_BUDGET_MS = 22;
+const SLOW_SECONDS = 2;
+/** Frame times are averaged over windows this long; one window under budget resets. */
+const WINDOW_SECONDS = 0.25;
+/** Not measured right after the loader hands over, or after a drop (formations rebuild). */
+const QUALITY_SETTLE_SECONDS = 1.5;
+/** A longer gap is a paused or backgrounded tab, not a slow frame. */
+const MAX_COUNTED_DELTA = 1;
+
+/**
+ * Watches frame time and, if the average stays above FRAME_BUDGET_MS for SLOW_SECONDS,
+ * drops one particle tier and turns the bloom off. Never steps back up: the cap is kept
+ * in the store (so resizes respect it) and in sessionStorage (so reloads do too).
+ */
+function QualityGovernor() {
+  const s = useRef({ settle: QUALITY_SETTLE_SECONDS, time: 0, frames: 0, slow: 0, elapsed: 0 });
+
+  useFrame((_, delta) => {
+    const { loaded, tier } = useSite.getState();
+    if (!loaded) return;
+    const g = s.current;
+    if (delta > MAX_COUNTED_DELTA) {
+      g.time = 0;
+      g.frames = 0;
+      return;
+    }
+    g.elapsed += delta;
+    if (g.settle > 0) {
+      g.settle -= delta;
+      return;
+    }
+    g.time += delta;
+    g.frames++;
+    if (g.time < WINDOW_SECONDS) return;
+
+    const average = (g.time / g.frames) * 1000;
+    g.slow = average > FRAME_BUDGET_MS ? g.slow + g.time : 0;
+    g.time = 0;
+    g.frames = 0;
+    frame.debug.slow = g.slow;
+    if (g.slow < SLOW_SECONDS || tier === "mobile") return;
+
+    const cap = useSite
+      .getState()
+      .downgrade(`at ${g.elapsed.toFixed(1)}s (${average.toFixed(1)}ms)`);
+    try {
+      sessionStorage.setItem(QUALITY_SESSION_KEY, cap);
+    } catch {
+      // Storage unavailable: the cap still holds for this page view.
+    }
+    g.slow = 0;
+    frame.debug.slow = 0;
+    g.settle = QUALITY_SETTLE_SECONDS;
+  });
+
+  return null;
+}
+
 /**
  * Enables the bloom only if it fits the budget: measures average frame time without it,
  * then with it, and keeps it only when the difference is under BLOOM_BUDGET_MS.
@@ -27,6 +86,10 @@ function BloomGate() {
   const loaded = useSite((state) => state.loaded);
   const [mode, setMode] = useState<BloomMode>("baseline");
   const sample = useRef({ frames: 0, total: 0, settle: SETTLE_FRAMES * 4, baseline: 0 });
+
+  useEffect(() => {
+    frame.debug.bloom = mode;
+  }, [mode]);
 
   useFrame((_, delta) => {
     if (!loaded || mode === "on" || mode === "off") return;
@@ -64,7 +127,8 @@ export default function Scene() {
   const tier = useSite((state) => state.tier);
   const reducedMotion = useSite((state) => state.reducedMotion);
   const ready = useSite((state) => state.viewport !== null);
-  const bloom = ready && tier === "desktop" && !reducedMotion;
+  const bloomAllowed = useSite((state) => state.bloomAllowed);
+  const bloom = ready && tier === "desktop" && !reducedMotion && bloomAllowed;
 
   return (
     <Canvas
@@ -81,6 +145,7 @@ export default function Scene() {
       <color attach="background" args={[COLORS.bg]} />
       <CameraRig />
       <ParticleField />
+      <QualityGovernor />
       {bloom ? <BloomGate /> : null}
     </Canvas>
   );

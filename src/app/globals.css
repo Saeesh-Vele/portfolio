@@ -300,6 +300,103 @@ html[data-loader="skip"] .loader {
   animation: slow-pulse 3.2s ease-in-out infinite;
 }
 
+/* ------------------------------------------------------------------ crosshair cursor
+   Desktop pointers only (see Cursor.tsx). The native cursor is hidden only while the
+   crosshair is tracking; it never takes pointer events, so selection works as usual. */
+
+html[data-cursor="on"],
+html[data-cursor="on"] * {
+  cursor: none !important;
+}
+
+html[data-cursor="on"] :is(input, textarea, [contenteditable="true"]) {
+  cursor: text !important;
+}
+
+.crosshair {
+  opacity: 0;
+  transition: opacity 0.3s var(--ease-expo);
+  will-change: transform;
+}
+
+.crosshair[data-visible="true"] {
+  opacity: 1;
+}
+
+.crosshair-arm {
+  position: absolute;
+  background: var(--color-glacier);
+  transition: transform 0.35s var(--ease-expo);
+}
+
+.crosshair-arm[data-arm="n"],
+.crosshair-arm[data-arm="s"] {
+  left: 0;
+  width: 1px;
+  height: 7px;
+}
+
+.crosshair-arm[data-arm="w"],
+.crosshair-arm[data-arm="e"] {
+  top: 0;
+  width: 7px;
+  height: 1px;
+}
+
+.crosshair-arm[data-arm="n"] {
+  top: -10px;
+}
+.crosshair-arm[data-arm="s"] {
+  top: 4px;
+}
+.crosshair-arm[data-arm="w"] {
+  left: -10px;
+}
+.crosshair-arm[data-arm="e"] {
+  left: 4px;
+}
+
+/* Over links and buttons the reticle opens up a little. */
+.crosshair[data-link="true"] .crosshair-arm[data-arm="n"] {
+  transform: translateY(-3px);
+}
+.crosshair[data-link="true"] .crosshair-arm[data-arm="s"] {
+  transform: translateY(3px);
+}
+.crosshair[data-link="true"] .crosshair-arm[data-arm="w"] {
+  transform: translateX(-3px);
+}
+.crosshair[data-link="true"] .crosshair-arm[data-arm="e"] {
+  transform: translateX(3px);
+}
+
+.crosshair-readout {
+  position: absolute;
+  top: 9px;
+  left: 14px;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: pre;
+  transition: transform 0.35s var(--ease-expo);
+}
+
+.crosshair[data-flip="true"] .crosshair-readout {
+  left: auto;
+  right: 14px;
+}
+
+.crosshair[data-link="true"] .crosshair-readout {
+  transform: translate(3px, 3px);
+}
+
+.crosshair[data-flip="true"][data-link="true"] .crosshair-readout {
+  transform: translate(-3px, 3px);
+}
+
 /* ------------------------------------------------------------------ reduced motion */
 
 @media (prefers-reduced-motion: reduce) {

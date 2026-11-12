@@ -734,6 +734,43 @@ export const contactSection = {
   clockPrefix: "MUMBAI ·",
 } as const;
 
+/**
+ * Top-left HUD readout, keyed by section id: it shows the label of the section being read
+ * (the hero shows its own readout). The all-work index sits inside the WORK span.
+ */
+export const sectionHud: Record<string, string> = {
+  hero: hero.hud.topLeft,
+  about: about.label,
+  experience: experienceSection.label,
+  work: work.label,
+  skills: capabilities.label,
+  recognition: recognition.label,
+  contact: contactSection.label,
+};
+
+/** Desktop crosshair cursor readout: "X 0412 Y 0288". */
+export const cursor = {
+  x: "X",
+  y: "Y",
+} as const;
+
+export const notFound = {
+  title: "404 / Signal lost — Saeesh Vele",
+  heading: "404 / SIGNAL LOST",
+  /** Readout above the heading. */
+  label: "NO RECORD AT THIS ADDRESS",
+  /** `emphasis` parts are set in Instrument Serif italic. */
+  body: [
+    { text: "This page is only " },
+    { text: "noise.", emphasis: true },
+    { text: " The rest of the signal is one link away." },
+  ] as { text: string; emphasis?: boolean }[],
+  home: "Back to the signal",
+  homeGlyph: "←",
+  /** Readout: "REQUESTED /some/path". */
+  pathLabel: "REQUESTED",
+} as const;
+
 export const footer = {
   copyright: "© 2026 Saeesh Vele",
   built: "Built with Next.js · Three.js · GLSL",

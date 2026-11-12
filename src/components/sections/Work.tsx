@@ -289,10 +289,7 @@ export function Work() {
           );
         })}
 
-        {/* HUD */}
-        <p className="label absolute left-(--gutter) top-[calc(var(--nav-h)+0.75rem)]">
-          {work.label}
-        </p>
+        {/* HUD — case readout. The section label is the global SectionHud, top left. */}
         <p
           aria-hidden
           className={`label absolute right-(--gutter) top-[calc(var(--nav-h)+0.75rem)] pr-3 transition-opacity duration-500 md:pr-0 ${

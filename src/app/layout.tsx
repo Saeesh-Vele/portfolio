@@ -1,23 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { GeistSans } from "geist/font/sans";
-import { GeistMono } from "geist/font/mono";
-import { Instrument_Serif } from "next/font/google";
 import { CanvasRoot } from "@/components/canvas/CanvasRoot";
+import { Cursor } from "@/components/ui/Cursor";
 import { DebugGate } from "@/components/ui/DebugGate";
 import { Loader } from "@/components/ui/Loader";
 import { Nav } from "@/components/ui/Nav";
+import { SectionHud } from "@/components/ui/SectionHud";
 import { SiteRuntime } from "@/components/ui/SiteRuntime";
 import { a11y, site } from "@/content/content";
 import { LOADER_SESSION_KEY } from "@/lib/constants";
+import { geistMono, geistSans, instrumentSerif } from "./fonts";
 import "./globals.css";
-
-const instrumentSerif = Instrument_Serif({
-  weight: "400",
-  style: "italic",
-  subsets: ["latin"],
-  variable: "--font-instrument-serif",
-  display: "swap",
-});
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
@@ -52,7 +44,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${GeistSans.variable} ${GeistMono.variable} ${instrumentSerif.variable} antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased`}
     >
       <body>
         <script dangerouslySetInnerHTML={{ __html: prePaintScript }} />
@@ -69,7 +61,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <SiteRuntime />
         <Loader />
         <Nav />
+        <SectionHud />
         <DebugGate />
+        <Cursor />
         <div className="relative z-10">{children}</div>
       </body>
     </html>
