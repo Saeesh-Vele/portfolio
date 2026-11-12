@@ -44,7 +44,7 @@ const personJsonLd = {
   name: site.name,
   jobTitle: site.role,
   url: siteUrl,
-  description: site.description,
+  description: site.personDescription,
   alumniOf: { "@type": "CollegeOrUniversity", name: site.college },
   address: {
     "@type": "PostalAddress",

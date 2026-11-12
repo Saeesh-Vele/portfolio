@@ -120,7 +120,11 @@ export const site = {
   monogram: "SV",
   role: "Data & AI Engineer",
   title: "Saeesh Vele — Data & AI Engineer",
+  /** Meta, Open Graph, Twitter and web-manifest description. */
   description:
+    "Data & AI engineer in Mumbai building data pipelines, dashboards and LLM-powered apps. 5 internships, 1,000+ users, 3rd of 1,000+ teams at NexBuildOn Hack 2026.",
+  /** JSON-LD Person description (third person, describes the entity). */
+  personDescription:
     "Saeesh Vele is a final-year Computer Engineering student in Mumbai who builds data pipelines, dashboards and LLM-powered apps. Five internships, products used by 1,000+ students, 3rd of 1,000+ teams at NexBuildOn Hack 2026.",
   location: "Mumbai, India",
   graduation: "May 2027",
