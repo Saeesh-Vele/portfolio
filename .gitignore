@@ -40,3 +40,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local tooling (never committed; CLAUDE.md and AGENTS.md stay tracked)
+/.claude/
+/.code-review-graph/
+.eslintcache
+/.turbo/
+.vscode/
+.idea/
