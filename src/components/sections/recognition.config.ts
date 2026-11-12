@@ -3,16 +3,19 @@ import type { CameraKeyframe, SectionDef, Viewport } from "@/lib/sections";
 
 /**
  * Desktop: the camera looks straight ahead from left of the podium, which puts the podium in
- * the right half of the frame and leaves the left for the text. Mobile: centred.
+ * the right half of the frame and leaves the left for the text. Mobile: aimed at the middle
+ * of podium + numeral (base to the numeral's top), dead centre; the view shift written by
+ * Recognition.tsx moves it into its band above the heading.
  */
 const view = (viewport: Viewport, at: number, back: number, lift: number): CameraKeyframe => {
   const [x, y, z] = PODIUM_VIEW.base;
   const aside = viewport.isMobile ? 0 : -3.5;
   const distance = (viewport.isMobile ? 19 : 13.5) + back;
+  const middle = (PODIUM_VIEW.heights[2] + PODIUM_VIEW.numeralHeight) / 2;
   return {
     at,
     position: [x + aside, y + 2.6 + lift, z + distance],
-    target: [x + aside, y + (viewport.isMobile ? 0.2 : 1.7), z],
+    target: [x + aside, y + (viewport.isMobile ? middle : 1.7), z],
     fov: viewport.isMobile ? 50 : 40,
   };
 };

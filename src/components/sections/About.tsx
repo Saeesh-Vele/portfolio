@@ -71,18 +71,18 @@ function AboutStage({ pinned }: { pinned: boolean }) {
     <div
       ref={root}
       data-stats-stage
-      className={`relative flex flex-col px-(--gutter) pb-5 pt-[calc(var(--nav-h)+0.875rem)] md:pb-9 md:pt-[calc(var(--nav-h)+2rem)] ${
+      // The section label is the global SectionHud (top left); on phones the copy starts
+      // just below its line.
+      className={`relative flex flex-col px-(--gutter) pb-5 pt-[calc(var(--nav-h)+2.625rem)] md:pb-9 md:pt-[calc(var(--nav-h)+2rem)] ${
         pinned ? "h-full" : "min-h-svh"
       }`}
     >
       <h2 className="sr-only">{about.heading}</h2>
 
       <div className="grid grid-cols-12 gap-x-6">
-        <p className="label col-span-12 md:col-span-2">{about.label}</p>
-
         <p
           data-split
-          className="col-span-12 mt-3 text-[0.9375rem] leading-[1.42] tracking-[-0.01em] text-text md:col-span-7 md:mt-0 md:text-[clamp(1.25rem,min(2vw,3.4vh),1.875rem)] md:leading-[1.28] md:tracking-[-0.02em]"
+          className="col-start-1 col-end-13 text-[0.9375rem] leading-[1.42] tracking-[-0.01em] text-text md:col-start-3 md:col-end-10 md:text-[clamp(1.25rem,min(2vw,3.4vh),1.875rem)] md:leading-[1.28] md:tracking-[-0.02em]"
         >
           {about.bio.map((part) =>
             part.emphasis ? (
@@ -95,7 +95,7 @@ function AboutStage({ pinned }: { pinned: boolean }) {
           )}
         </p>
 
-        <div className="col-span-12 mt-3 md:col-span-3 md:mt-1">
+        <div className="col-start-1 col-end-13 mt-3 md:col-start-10 md:col-end-13 md:mt-1">
           <p className="label hidden md:block">{about.educationLabel}</p>
           <p data-split className="label text-text md:mt-2 md:leading-[1.6]">
             {about.educationLine.join(" · ")}

@@ -47,10 +47,19 @@ export function columnExit(p: number, i: number, count: number, mobile: boolean)
   return ramp(p, next - MOBILE_FADE, next);
 }
 
-/** 0..1 separation of cluster `i` from the merged mass into its own shape. */
+/**
+ * 0..1 separation of cluster `i` from the merged mass into its own shape. Desktop: each
+ * leaves just ahead of its column. Phones: all four separate together (slightly staggered)
+ * as the first panel arrives, so the 2 × 2 is complete while the panels step through it and
+ * the panel being read lights its own shape.
+ */
 export function clusterSpread(p: number, i: number, mobile: boolean): number {
-  const a = start(i, mobile);
-  return mobile ? ramp(p, a - 0.05, a + 0.08) : ramp(p, a - 0.04, a + 0.15);
+  if (mobile) {
+    const a = start(0, true) - 0.08 + i * 0.02;
+    return ramp(p, a, a + 0.14);
+  }
+  const a = start(i, false);
+  return ramp(p, a - 0.04, a + 0.15);
 }
 
 /**

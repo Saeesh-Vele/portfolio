@@ -86,7 +86,7 @@ const DESKTOP_FRAMING: Record<number, { aside: number; lift: number }> = {
 /**
  * EXPERIENCE — the camera rides the pipeline, slightly above and behind the point it is
  * looking at. At each station it slows to a creep with the ring off to one side (desktop) or
- * in the upper half (mobile), leaving the other side clear for that station's panel.
+ * centred in the scene area above the bottom sheet (mobile), clear of that station's panel.
  */
 export const experienceSection: SectionDef = {
   id: "experience",
@@ -109,10 +109,12 @@ export const experienceSection: SectionDef = {
       const rig = pathFrame(path, u - du(back - creep));
       const side = mobile ? 0 : panelSide(index) === "left" ? 1 : -1;
       const position = add(add(rig.position, UP, height), rightOf(rig.tangent), side * 0.55);
-      // Aim away from the ring so it sits off-centre: sideways on desktop, upwards on mobile.
+      // Desktop: aim away from the ring so it sits off-centre, beside its panel. Mobile: aim
+      // at the ring itself; the view shift (src/lib/sheetShift.ts) centres it in the scene
+      // area above the bottom sheet, whatever the sheet's and the viewport's heights.
       const framing = mobile ? undefined : DESKTOP_FRAMING[index];
       const target = mobile
-        ? add(station.position, UP, -STATION.radius * 1.55)
+        ? station.position
         : add(
             add(station.position, rightOf(station.tangent), -side * STATION.radius * (framing?.aside ?? 1.3)),
             UP,
@@ -127,7 +129,7 @@ export const experienceSection: SectionDef = {
       return {
         at: toAt(q, viewport),
         position: add(rig.position, UP, height + 0.3),
-        target: add(pathFrame(path, u + du(1.5)).position, UP, mobile ? -0.6 : 0),
+        target: pathFrame(path, u + du(1.5)).position,
         fov: fov + 3,
       };
     };

@@ -85,8 +85,8 @@ const add = (a: Vec3, b: Vec3, scale = 1): Vec3 => [
 
 /**
  * WORK — the camera starts on the whole graph, orbiting slowly, then dives to each featured
- * project in turn (node off to one side on desktop, in the upper half on mobile, clear of
- * its case study), and finally pulls back out to the whole graph.
+ * project in turn (node off to one side on desktop, centred above the bottom sheet on
+ * mobile, clear of its case study), and finally pulls back out to the whole graph.
  */
 export const workSection: SectionDef = {
   id: "work",
@@ -118,14 +118,15 @@ export const workSection: SectionDef = {
 
     const atProject = (index: number, q: number, creep: number): CameraKeyframe => {
       const node = graph.projects[index].position;
-      // +1: node on the right of the frame (panel left). 0 on mobile: node centred, high.
+      // +1: node on the right of the frame (panel left). 0 on mobile: aimed dead centre; the
+      // view shift (src/lib/sheetShift.ts) centres it in the scene area above the sheet.
       const side = mobile ? 0 : workPanelSide(index, viewport) === "left" ? 1 : -1;
       return {
         at: toAt(q, viewport),
         position: add(node, [side * 0.5, 0.45, diveDistance - creep]),
-        // Aim just past the node towards the panel: the node lands beside the panel's inner
-        // edge, with its edges running on into the free half of the frame.
-        target: mobile ? add(node, [0, -1.9, 0]) : add(node, [-side * 0.75, -0.1, 0]),
+        // Desktop: aim just past the node towards the panel, so the node lands beside the
+        // panel's inner edge with its edges running on into the free half of the frame.
+        target: mobile ? node : add(node, [-side * 0.75, -0.1, 0]),
         fov,
       };
     };

@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { cameraParam, locate, nearestKeyframe } from "@/lib/timeline";
+import { cameraParam, locate, nearestKeyframe, sectionAt } from "@/lib/timeline";
 import { frame, useSite } from "@/store/site";
 
 const scratchPosition = new THREE.Vector3();
@@ -12,6 +12,8 @@ const scratchTarget = new THREE.Vector3();
 /** Higher = the camera catches up with scroll faster. */
 const PROGRESS_DAMPING = 4.5;
 const PARALLAX = { x: 0.35, y: 0.2, damping: 2.5 };
+/** Touch screens: amplitude (world units) of the idle breathing sway. */
+const SWAY = { x: 0.16, y: 0.1 };
 
 /**
  * Scroll-driven camera. The camera position follows one CatmullRom spline through every
@@ -23,7 +25,18 @@ const PARALLAX = { x: 0.35, y: 0.2, damping: 2.5 };
  */
 export function CameraRig() {
   const timeline = useSite((state) => state.timeline);
-  const local = useRef({ started: false, lastScrollY: 0, parallaxX: 0, parallaxY: 0 });
+  const local = useRef({
+    started: false,
+    lastScrollY: 0,
+    parallaxX: 0,
+    parallaxY: 0,
+    touch: false,
+    sway: 0,
+    swayTime: 0,
+  });
+  useEffect(() => {
+    local.current.touch = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+  }, []);
 
   const curves = useMemo(() => {
     if (!timeline || timeline.stops.length === 0) return null;
@@ -85,21 +98,57 @@ export function CameraRig() {
     curves.position.getPoint(u, scratchPosition);
     curves.target.getPoint(u, scratchTarget);
 
-    // --- subtle depth parallax following the pointer
-    const active = reducedMotion ? 0 : frame.pointerActive;
+    // --- subtle depth parallax following the pointer (mouse only: a touch is a scroll or a
+    //     scatter, and must not swing the camera)
+    const active = reducedMotion || s.touch ? 0 : frame.pointerActive;
     s.parallaxX = THREE.MathUtils.damp(s.parallaxX, frame.pointerX * active, PARALLAX.damping, dt);
     s.parallaxY = THREE.MathUtils.damp(s.parallaxY, frame.pointerY * active, PARALLAX.damping, dt);
 
+    // --- idle breathing on touch screens (no pointer parallax there): a slow, small sway,
+    //     calmed while scrolling, off where the 3D must stay aligned with the DOM
+    s.swayTime += dt;
+    // STATS columns are aligned to the DOM grid in world space: no sway around them.
+    const aboutAt = sectionAt(timeline, "about", frame.progress);
+    const aligned = aboutAt !== null && aboutAt > -0.35 && aboutAt < 1.05;
+    const swayTarget = reducedMotion || !s.touch || aligned ? 0 : 1 - frame.energy;
+    s.sway = THREE.MathUtils.damp(s.sway, swayTarget, 1.5, dt);
+    const swayX = Math.sin(s.swayTime * 0.42) * SWAY.x * s.sway;
+    const swayY = Math.sin(s.swayTime * 0.31 + 1.2) * SWAY.y * s.sway;
+
     camera.position.set(
-      scratchPosition.x + s.parallaxX * PARALLAX.x,
-      scratchPosition.y + s.parallaxY * PARALLAX.y,
+      scratchPosition.x + s.parallaxX * PARALLAX.x + swayX,
+      scratchPosition.y + s.parallaxY * PARALLAX.y + swayY,
       scratchPosition.z,
     );
     camera.lookAt(scratchTarget);
+    let projectionDirty = false;
     if (Math.abs(camera.fov - fov) > 0.001) {
       camera.fov = fov;
-      camera.updateProjectionMatrix();
+      projectionDirty = true;
     }
+
+    // --- view shift: move the rendered image vertically without moving the camera
+    let shift = 0;
+    for (const key in frame.viewShift) shift += frame.viewShift[key];
+    const { width, height } = state.size;
+    const view = camera.view;
+    if (Math.abs(shift) < 0.25) {
+      if (view?.enabled) {
+        camera.clearViewOffset();
+        projectionDirty = false;
+      }
+      shift = 0;
+    } else if (
+      !view?.enabled ||
+      Math.abs(view.offsetY - shift) > 0.05 ||
+      view.fullWidth !== width ||
+      view.fullHeight !== height
+    ) {
+      camera.setViewOffset(width, height, 0, shift, width, height);
+      projectionDirty = false;
+    }
+    frame.appliedShift = shift;
+    if (projectionDirty) camera.updateProjectionMatrix();
   }, -1);
 
   return null;

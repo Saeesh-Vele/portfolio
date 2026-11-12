@@ -28,8 +28,18 @@ import { getFormation } from "./formations";
 /** Seconds for the particles to assemble out of noise once the loader hands over. */
 const INTRO_SECONDS = 2.8;
 /** World-space point diameter. Fewer particles on mobile, so each is slightly larger. */
-const POINT_SIZE: Record<Tier, number> = { mobile: 0.028, mid: 0.026, desktop: 0.022 };
-const MAX_POINT_PX = 26;
+const POINT_SIZE: Record<Tier, number> = {
+  mobile: 0.028,
+  mobileHigh: 0.026,
+  mid: 0.026,
+  desktop: 0.022,
+};
+/**
+ * Largest point, in CSS px (× DPR on the GPU). Particles that would grow past it — right in
+ * front of the lens — fade out on the way (see nearFade in the shader) rather than render as
+ * big blurry discs.
+ */
+const MAX_POINT_PX = 16;
 
 /** Curve parameter per second for the pipeline flow: one pass takes about a minute. */
 const FLOW_SPEED = 0.016;
@@ -150,6 +160,7 @@ function Field({ viewport, tier }: { viewport: Viewport; tier: Tier }) {
           uSize: { value: POINT_SIZE.desktop },
           uScale: { value: 1 },
           uMaxSize: { value: MAX_POINT_PX },
+          uGlow: { value: 0 },
           uDim: { value: 0 },
           uPointer: { value: 0 },
           uPointerRadius: { value: 1.1 },
@@ -267,8 +278,10 @@ function Field({ viewport, tier }: { viewport: Viewport; tier: Tier }) {
       const measured = frame.clusterHome[2] > 0;
       const px = measured ? x : viewW / 2;
       const py = measured ? y : viewH / 2;
+      // A view shift moves the camera's axis on screen: it projects `appliedShift` px higher.
+      const axisY = viewH / 2 - frame.appliedShift;
       scratchBox
-        .set((px - viewW / 2) * worldPerPx, (viewH / 2 - py) * worldPerPx, -CLUSTERS_VIEW.distance)
+        .set((px - viewW / 2) * worldPerPx, (axisY - py) * worldPerPx, -CLUSTERS_VIEW.distance)
         .applyMatrix4(cam.matrixWorld);
       return (measured ? scale : viewH * 0.06) * worldPerPx;
     };
@@ -306,13 +319,18 @@ function Field({ viewport, tier }: { viewport: Viewport; tier: Tier }) {
     const bufferHeight = state.gl.domElement.height;
     u.uScale.value = camera.projectionMatrix.elements[5] * bufferHeight * 0.5;
     u.uMaxSize.value = MAX_POINT_PX * state.viewport.dpr;
+    // Phones never run the bloom pass: the sprites carry a soft glow of their own instead.
+    u.uGlow.value = viewport.isMobile ? 1 : 0;
     frame.debug.dpr = state.viewport.dpr;
     frame.debug.particles = count;
 
     // --- pointer ray. The pointer is smoothed, so particles ease back after it passes.
     s.pointerX = THREE.MathUtils.damp(s.pointerX, frame.pointerX, 7, dt);
     s.pointerY = THREE.MathUtils.damp(s.pointerY, frame.pointerY, 7, dt);
-    s.pointer = THREE.MathUtils.damp(s.pointer, reducedMotion ? 0 : frame.pointerActive, 4, dt);
+    // A lifted finger lets the scatter heal slowly (about a second); a mouse eases back fast.
+    const pointerTarget = reducedMotion ? 0 : frame.pointerActive;
+    const healing = frame.pointerTouch && pointerTarget < s.pointer;
+    s.pointer = THREE.MathUtils.damp(s.pointer, pointerTarget, healing ? 1.6 : 4, dt);
     scratchRay.set(s.pointerX, s.pointerY, 0.5).unproject(camera).sub(camera.position).normalize();
     (u.uRayOrigin.value as THREE.Vector3).copy(camera.position);
     (u.uRayDir.value as THREE.Vector3).copy(scratchRay);

@@ -14,8 +14,10 @@ const NAV_HEIGHT = 64;
 /**
  * The top-left corner readout. Over the hero it reads "SV / 2026"; once another section
  * crosses the reading line it switches to that section's label ("04 / WORK") with a short
- * mono character scramble (an instant swap with reduced motion). Decorative: every section
- * also carries its own label in the page. Empty on pages without sections (the 404).
+ * mono character scramble (an instant swap with reduced motion). It is the only visible
+ * section label at every size — sections do not repeat it — and it is decorative
+ * (aria-hidden): each section has its own sr-only heading. Empty on pages without sections
+ * (the 404).
  */
 export function SectionHud() {
   const output = useRef<HTMLParagraphElement>(null);

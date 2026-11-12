@@ -44,8 +44,8 @@ export function Contact() {
       data-section={contactSection.id}
       className="relative flex min-h-svh flex-col justify-center px-(--gutter) pb-16 pt-[calc(var(--nav-h)+3rem)]"
     >
-      <div className="flex items-baseline justify-between gap-6">
-        <p className="label">{copy.label}</p>
+      {/* The section label is the global SectionHud (top left); the local clock stays. */}
+      <div className="flex items-baseline justify-end gap-6">
         <p className="label">
           <Clock
             timeZone={hero.hud.clockTimeZone}

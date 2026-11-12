@@ -94,6 +94,8 @@ export const frame = {
   pointerY: 0,
   /** 1 while a pointer is over the page, else 0. */
   pointerActive: 0,
+  /** 1 if the last pointer was a finger (scatter heals slowly), 0 for a mouse. */
+  pointerTouch: 0,
   /**
    * STATS: 0..1 rise of each bar column, written by the same tween that drives its DOM
    * counter so the two stay in sync.
@@ -121,6 +123,16 @@ export const frame = {
   clusterHome: new Float32Array(3),
   /** CLUSTERS: 0..1 separation of each cluster, written with the column reveals. */
   clusterSpread: new Float32Array(MAX_CLUSTERS),
+  /**
+   * Vertical shift of the rendered 3D image, in CSS px (+ = up), one entry per DOM writer.
+   * Each section writes its own entry every frame (0 when it has nothing to say); the camera
+   * rig applies the sum as a view offset. This is how a portrait screen keeps the subject
+   * centred in the scene area above a bottom sheet (Experience, Work), or locked to a band
+   * of the page (Recognition), whatever the viewport height is at that moment.
+   */
+  viewShift: { experience: 0, work: 0, recognition: 0 } as Record<string, number>,
+  /** The shift the camera actually applied this frame (px), for screen-space placement. */
+  appliedShift: 0,
   /** Read by the ?debug=1 overlay only: what the particle field is currently rendering. */
   debug: {
     formation: "",

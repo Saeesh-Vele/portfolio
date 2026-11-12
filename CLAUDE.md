@@ -85,9 +85,13 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
    the whole page, with a separate look-at target spline. Global scroll progress → position on
    the path, smoothed with damping (no jitter, no snapping). Each section registers its own
    camera keyframe (position, target, FOV) so later phases just add keyframes.
-4. Pinned 3D chapters: GSAP ScrollTrigger pinned sections where scrolling drives the 3D scene
-   (camera travel, formation morphs) while the DOM stays in place. One reusable
-   `<ScrollChapter>` wrapper does this.
+4. Pinned 3D chapters: sections where scrolling drives the 3D scene (camera travel, formation
+   morphs) while the DOM stays in place. One reusable `<ScrollChapter>` wrapper does this: the
+   stage is CSS `position: sticky`, one *dynamic* viewport tall (`.chapter-stage`), and GSAP
+   ScrollTrigger only reports progress. Not a GSAP pin: a pin freezes the stage's px size at
+   refresh, and with `ignoreMobileResize` the iOS address bar then leaves it stale.
+   ScrollTrigger refreshes only on a width change (rotation) or a desktop resize, debounced;
+   on touch screens a height-only change never rebuilds formations either (`SiteRuntime`).
 5. Scroll velocity → particle energy: smoothed scroll velocity feeds a shader uniform
    (`uEnergy`) that adds turbulence and slight point stretching along the motion direction; it
    calms back to rest when scrolling stops.
@@ -113,6 +117,13 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
 8. Readability rule: 3D intensity peaks BETWEEN sections and calms down while text is being
    read. Text panels always stay legible (contrast ≥ 4.5:1); particles behind text can dim
    locally.
+9. View shift (portrait framing): `frame.viewShift[<section>]` is a vertical image shift in
+   CSS px, written every frame by the DOM; `CameraRig` applies the sum with
+   `camera.setViewOffset`. Mobile keyframes aim at the subject dead centre and the shift
+   moves it where the layout wants it: centred above a bottom sheet (Experience, Work —
+   `src/lib/sheetShift.ts`, measured, so it holds at any viewport height) or locked to a band
+   of the page (Recognition's podium). Screen-space placement (CLUSTERS) reads
+   `frame.appliedShift`.
 
 ### Where things are
 
@@ -187,8 +198,16 @@ pause should still feel alive (pipeline stations).
 
 `<ScrollChapter>` takes `length` / `mobileLength` (the height is CSS-driven, so there is no
 layout shift at the breakpoint) and `reducedFallback`, a normal-flow version rendered inside
-the same stage element with reduced motion. Its element tree must stay identical in both
-modes: GSAP re-parents the pinned stage, so React must never remove or replace the stage.
+the same stage element with reduced motion. Its element tree stays identical in both modes,
+so switching never remounts the children.
+
+Section labels: the fixed `SectionHud` (top left) is the only visible section label at every
+size. Sections do not repeat it; their content starts below its line.
+
+Mobile bottom sheets (Experience, Work): no card — `.sheet` is a page-colour scrim (clear at
+the top → 92% behind the copy) with one hairline above the index line. Only the active panel
+is in flow, so the sheet hugs it; the compact view stays under ~45% of the viewport (Work's
+compact case study is index, context, title, one-liner, stack, links + READ MORE inline).
 
 Per-frame values (smoothed progress, energy, pointer) live in the mutable `frame` object in
 `src/store/site.ts` and are read inside `useFrame` — never put them in React state.
@@ -203,7 +222,8 @@ Per-frame values (smoothed progress, energy, pointer) live in the mutable `frame
   camera keyframes are all derived from `featuredProjects`; reorder or edit stacks in
   `content.ts` and they follow. `moreWork` items appear only in the All-work index.
 - CLUSTERS is a short pinned chapter (1.5 viewports; 2.2 on phones, which step through the
-  columns one panel at a time). The clusters are placed in screen space, not world space: the
+  columns one panel at a time over a complete 2 × 2 of all four shapes, the panel being read
+  lighting its own). The clusters are placed in screen space, not world space: the
   Capabilities section measures the empty band between its heading and columns every frame and
   writes one box per cluster to `frame.clusterBox` (plus `frame.clusterSpread`, scrubbed with
   the column reveals from `skills.config.ts`). Shapes are normalised to fit their box, so a
@@ -231,12 +251,18 @@ Per-frame values (smoothed progress, energy, pointer) live in the mutable `frame
 ## Performance & accessibility
 
 - 60fps on an M1 MacBook; smooth on a mid-range Android phone.
-- Particle count: ~60k desktop / ~18k mobile (decided via viewport width +
-  `navigator.hardwareConcurrency` in `src/lib/device.ts`). DPR clamped to [1, 1.75]. Rendering
-  pauses when the tab is hidden. The canvas is dynamically imported (`ssr:false`) so text
-  paints first.
+- Particle count: ~60k desktop / ~35k capable phones (`mobileHigh`: ≥ 6 cores or a high-end
+  GPU, `capablePhone()`) / ~18k other phones (decided via viewport width,
+  `navigator.hardwareConcurrency` and the GPU in `src/lib/device.ts`). DPR clamped to
+  [1, 1.75]; point sizes are in device px. Rendering pauses when the tab is hidden. The canvas
+  is dynamically imported (`ssr:false`) so text paints first.
+- Points are capped at 16 CSS px; particles within ~1.5 units of the lens, or whose resting
+  size runs into the cap, fade out (no blurry discs). Phones (no bloom) get a glow sprite
+  instead: bright core + soft radial halo, additive (`uGlow`).
+- Touch screens: no pointer parallax; an idle breathing sway (off around STATS, which align
+  with the DOM) and touch-drag scatter that heals over about a second. No gyroscope.
 - Adaptive quality: if the average frame time stays above 22ms for 2s, the field drops one
-  tier (desktop → mid → mobile) and the bloom is turned off. It never steps back up in the
+  tier (desktop → mid → mobile; mobileHigh → mobile) and the bloom is turned off. It never steps back up in the
   session: the cap lives in `useSite.tierCap` (resizes respect it) and sessionStorage
   (reloads do too). `?debug=1` shows `ADAPT` / `BLOOM` and every drop.
 - Bundle: three, @react-three/* and postprocessing load only in the dynamically imported

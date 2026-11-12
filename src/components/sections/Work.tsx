@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import gsap from "gsap";
 import { ScrollChapter } from "@/components/ui/ScrollChapter";
 import { a11y, featuredProjects, work, type Project } from "@/content/content";
 import { useLineReveal } from "@/lib/lineReveal";
+import { MOBILE_BREAKPOINT } from "@/lib/constants";
 import { lockScroll, scrollToSpan } from "@/lib/scroll";
+import { sheetShift } from "@/lib/sheetShift";
 import { workGraph } from "@/lib/workGraph";
 import { frame, useSite } from "@/store/site";
 import {
@@ -52,19 +54,22 @@ function ProjectLinks({ project }: { project: Project }) {
 }
 
 /**
- * One case study. `compact` (the mobile bottom sheet) keeps the one-liner, result, stack and
- * links and leaves the problem / built detail to wider screens.
+ * One case study. `compact` (the mobile bottom sheet) keeps the one-liner, stack and links
+ * and leaves the problem / built / result to wider screens and the expanded sheet. `more` is
+ * the mobile "READ MORE" control, set inline at the end of the links row.
  */
 function CaseStudy({
   project,
   index,
   split,
   compact,
+  more,
 }: {
   project: Project;
   index: number;
   split: boolean;
   compact: boolean;
+  more?: ReactNode;
 }) {
   const mark = split ? { "data-split": true } : {};
   const detail = compact ? "hidden md:block" : "";
@@ -93,7 +98,11 @@ function CaseStudy({
         {project.oneLiner}
       </p>
 
-      <div className="mt-3 flex flex-col gap-3 text-[0.8125rem] leading-[1.45] text-text md:mt-4 md:text-[0.8125rem] md:leading-[1.5]">
+      <div
+        className={`mt-3 flex-col gap-3 text-[0.8125rem] leading-[1.45] text-text md:mt-4 md:flex md:text-[0.8125rem] md:leading-[1.5] ${
+          compact ? "hidden" : "flex"
+        }`}
+      >
         <div className={detail}>
           <p className="label mb-1">{work.problemLabel}</p>
           <p {...mark}>{project.problem}</p>
@@ -124,8 +133,9 @@ function CaseStudy({
         <span className="sr-only">{work.stackLabel}: </span>
         {project.stack.join(", ")}
       </p>
-      <div className="mt-3 md:mt-4">
+      <div className="mt-3 flex items-baseline gap-5 md:mt-4">
         <ProjectLinks project={project} />
+        {more ? <span className="ml-auto md:hidden">{more}</span> : null}
       </div>
     </>
   );
@@ -137,6 +147,7 @@ function CasePanel({
   active,
   side,
   onFocusInactive,
+  more,
 }: {
   project: Project;
   index: number;
@@ -144,6 +155,7 @@ function CasePanel({
   side: "left" | "right";
   /** Keyboard focus landed in a hidden panel: travel to it so the focus is visible. */
   onFocusInactive: (index: number) => void;
+  more: ReactNode;
 }) {
   const root = useRef<HTMLLIElement>(null);
   useLineReveal(root, active);
@@ -155,11 +167,14 @@ function CasePanel({
       onFocus={() => {
         if (!active) onFocusInactive(index);
       }}
-      className={`station-panel relative row-start-1 ${PANEL_PLACEMENT[side]}`}
+      // Mobile: only the active panel is in flow, so the sheet hugs it.
+      className={`station-panel relative row-start-1 ${PANEL_PLACEMENT[side]} ${
+        active ? "" : "max-md:absolute max-md:inset-x-0 max-md:bottom-0"
+      }`}
     >
       <div aria-hidden className="scrim absolute -inset-x-24 -inset-y-16 hidden md:block" />
       <div className={`relative ${side === "left" ? "md:pr-16" : "md:pl-16"}`}>
-        <CaseStudy project={project} index={index} split compact />
+        <CaseStudy project={project} index={index} split compact more={more} />
       </div>
     </li>
   );
@@ -168,10 +183,9 @@ function CasePanel({
 /** Reduced motion: every case study in full, as a plain list over the static graph. */
 function WorkList() {
   return (
-    <div className="px-(--gutter) pb-20 pt-[calc(var(--nav-h)+2rem)]">
-      <p className="label">{work.label}</p>
+    <div className="px-(--gutter) pb-20 pt-[calc(var(--nav-h)+2.75rem)]">
       <h2 className="sr-only">{work.heading}</h2>
-      <ol className="mt-8 max-w-2xl border-l border-hairline bg-bg/90">
+      <ol className="max-w-2xl border-l border-hairline bg-bg/90">
         {featuredProjects.map((project, index) => (
           <li key={project.slug} className="py-8 pl-6 pr-4 md:pl-10">
             <CaseStudy project={project} index={index} split={false} compact={false} />
@@ -194,9 +208,14 @@ export function Work() {
   const graph = workGraph(mobile);
   const bar = useRef<HTMLSpanElement>(null);
   const followers = useRef<(HTMLElement | null)[]>([]);
+  const hud = useRef<HTMLParagraphElement>(null);
+  const sheetBody = useRef<HTMLOListElement>(null);
+  const showing = useRef(false);
 
   const onProgress = useCallback((progress: number) => {
-    setActive(activeProject(progress));
+    const project = activeProject(progress);
+    showing.current = project >= 0;
+    setActive(project);
     if (bar.current) bar.current.style.transform = `scaleY(${progress.toFixed(4)})`;
   }, []);
 
@@ -204,34 +223,53 @@ export function Work() {
   useEffect(() => {
     const projectCount = graph.projects.length;
     const diameter = graph.projectRadius * 2.3;
+    const shift = sheetShift("work", hud, sheetBody, showing);
+    /** Tech label widths (px), measured once they have laid out. */
+    const widths: number[] = [];
     const update = () => {
+      shift();
       const width = window.innerWidth;
       const height = window.innerHeight;
+      const mobile = width < MOBILE_BREAKPOINT;
+      // Labels stay inside the viewport's gutters, whatever their node does.
+      const margin = mobile ? 16 : 40;
+      // Phones: a label whose node has gone behind the bottom sheet hides with it.
+      const floor =
+        mobile && showing.current && sheetBody.current
+          ? sheetBody.current.getBoundingClientRect().top - 72
+          : Infinity;
+      // ...and below the HUD row (case readout, progress), never on top of it.
+      const ceiling = (hud.current?.getBoundingClientRect().bottom ?? 0) + 12;
       followers.current.forEach((element, i) => {
         if (!element) return;
         const o = i * 4;
-        const opacity = frame.nodes[o + 2];
+        const opacity = frame.nodes[o + 1] * height > floor ? 0 : frame.nodes[o + 2];
         element.style.opacity = opacity.toFixed(3);
         element.style.visibility = opacity > 0.02 ? "visible" : "hidden";
         if (opacity <= 0.02) return;
-        const x = (frame.nodes[o] * width).toFixed(1);
-        const y = (frame.nodes[o + 1] * height).toFixed(1);
+        const x = frame.nodes[o] * width;
+        const y = frame.nodes[o + 1] * height;
         if (i >= projectCount) {
           // Tech label: hangs just below its node, however large the node is on screen.
-          const drop = (frame.nodes[o + 3] * graph.techRadius + 6).toFixed(1);
-          element.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, ${drop}px)`;
+          if (!widths[i]) widths[i] = element.offsetWidth;
+          const half = (widths[i] || 0) / 2;
+          const left = Math.min(Math.max(x, margin + half), width - margin - half);
+          const drop = frame.nodes[o + 3] * graph.techRadius + 6;
+          const top = Math.max(y + drop, ceiling);
+          element.style.transform = `translate3d(${left.toFixed(1)}px, ${top.toFixed(1)}px, 0) translateX(-50%)`;
           return;
         }
-        element.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`;
-        if (i < projectCount) {
-          const size = Math.max(28, frame.nodes[o + 3] * diameter).toFixed(1);
-          element.style.width = `${size}px`;
-          element.style.height = `${size}px`;
-        }
+        element.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, -50%)`;
+        const size = Math.max(28, frame.nodes[o + 3] * diameter).toFixed(1);
+        element.style.width = `${size}px`;
+        element.style.height = `${size}px`;
       });
     };
     gsap.ticker.add(update);
-    return () => gsap.ticker.remove(update);
+    return () => {
+      gsap.ticker.remove(update);
+      frame.viewShift.work = 0;
+    };
   }, [graph]);
 
   const focused = active >= 0;
@@ -239,24 +277,26 @@ export function Work() {
   // Mobile: the sheet can expand to the full case study. Page scrolling (which drives the
   // camera) is locked while it is open, so the sheet's own scroll is the only one.
   const [expanded, setExpanded] = useState(false);
-  const moreButton = useRef<HTMLButtonElement>(null);
+  const moreButtons = useRef<(HTMLButtonElement | null)[]>([]);
   const sheet = useRef<HTMLDivElement>(null);
   const open = expanded && focused && mobile;
+  const collapse = useCallback(() => {
+    setExpanded(false);
+    moreButtons.current[active]?.focus({ preventScroll: true });
+  }, [active]);
   useEffect(() => {
     if (!open) return;
     lockScroll(true);
     sheet.current?.focus({ preventScroll: true });
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      setExpanded(false);
-      moreButton.current?.focus({ preventScroll: true });
+      if (event.key === "Escape") collapse();
     };
     window.addEventListener("keydown", onKey);
     return () => {
       lockScroll(false);
       window.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, collapse]);
 
   // Tab order: each case study's links are reached in project order; focusing one travels
   // the chapter to that project so the focused link is on screen.
@@ -321,6 +361,7 @@ export function Work() {
 
         {/* HUD — case readout. The section label is the global SectionHud, top left. */}
         <p
+          ref={hud}
           aria-hidden
           className={`label absolute right-(--gutter) top-[calc(var(--nav-h)+0.75rem)] pr-3 transition-opacity duration-500 md:pr-0 ${
             focused ? "opacity-100" : "opacity-0"
@@ -340,13 +381,17 @@ export function Work() {
           />
         </span>
 
-        {/* Case studies — one grid row, only the active one visible. Mobile: a bottom sheet. */}
+        {/* Case studies — one grid row, only the active one visible. Mobile: a bottom sheet
+            with no card, just a scrim the scene fades into. */}
         <div
-          className={`pointer-events-none absolute inset-x-0 bottom-0 border-t border-hairline bg-surface transition-opacity duration-500 md:inset-y-0 md:border-0 md:bg-transparent md:opacity-100 ${
-            focused ? "opacity-100" : "opacity-0"
-          }`}
+          data-empty={!focused}
+          className="sheet pointer-events-none absolute inset-x-0 bottom-0 md:inset-y-0"
         >
-          <ol className="grid grid-cols-12 gap-x-6 px-(--gutter) pb-6 pt-5 md:h-full md:items-center md:py-0">
+          <span aria-hidden className="sheet-rule hairline md:hidden" />
+          <ol
+            ref={sheetBody}
+            className="relative grid grid-cols-12 gap-x-6 px-(--gutter) md:h-full md:items-center"
+          >
             {featuredProjects.map((project, index) => (
               <CasePanel
                 key={project.slug}
@@ -355,22 +400,23 @@ export function Work() {
                 active={index === active}
                 side={viewport ? workPanelSide(index, viewport) : index % 2 === 0 ? "left" : "right"}
                 onFocusInactive={focusProject}
+                more={
+                  <button
+                    ref={(element) => {
+                      moreButtons.current[index] = element;
+                    }}
+                    type="button"
+                    aria-expanded={open && index === active}
+                    onClick={() => setExpanded(true)}
+                    className="label inline-flex min-h-6 cursor-pointer items-center text-text"
+                  >
+                    {work.more}&nbsp;<span aria-hidden>{work.moreGlyph}</span>
+                    <span className="sr-only"> — {project.title}</span>
+                  </button>
+                }
               />
             ))}
           </ol>
-          <button
-            ref={moreButton}
-            type="button"
-            aria-expanded={open}
-            // Out of the tab order while the sheet is faded out (graph overview).
-            tabIndex={focused ? undefined : -1}
-            onClick={() => setExpanded(true)}
-            className={`label absolute bottom-5 right-(--gutter) cursor-pointer text-text md:hidden ${
-              focused ? "pointer-events-auto" : ""
-            }`}
-          >
-            {work.more} <span aria-hidden>{work.moreGlyph}</span>
-          </button>
         </div>
 
         {/* Mobile: the full case study, scrollable inside the expanded sheet. */}
@@ -381,7 +427,7 @@ export function Work() {
             aria-label={`${a11y.caseSheet}: ${featuredProjects[active].title}`}
             tabIndex={-1}
             data-lenis-prevent
-            className="absolute inset-x-0 bottom-0 z-10 max-h-[calc(100svh-var(--nav-h)-1rem)] overflow-y-auto overscroll-contain border-t border-hairline bg-surface px-(--gutter) pb-6 pt-5 md:hidden"
+            className="absolute inset-x-0 bottom-0 z-10 max-h-[calc(100dvh-var(--nav-h)-1rem)] overflow-y-auto overscroll-contain border-t border-hairline bg-bg/95 px-(--gutter) pb-6 pt-5 md:hidden"
           >
             <CaseStudy
               project={featuredProjects[active]}
@@ -392,11 +438,8 @@ export function Work() {
             <button
               type="button"
               aria-expanded
-              onClick={() => {
-                setExpanded(false);
-                moreButton.current?.focus({ preventScroll: true });
-              }}
-              className="label mt-6 cursor-pointer text-text"
+              onClick={collapse}
+              className="label mt-6 inline-flex min-h-6 cursor-pointer items-center text-text"
             >
               {work.less} <span aria-hidden>{work.lessGlyph}</span>
             </button>

@@ -34,6 +34,7 @@ uniform float uDrift;
 uniform float uSize;
 uniform float uScale;
 uniform float uMaxSize;
+uniform float uGlow;
 uniform float uDim;
 uniform float uPointer;
 uniform float uPointerRadius;
@@ -245,15 +246,19 @@ void main() {
   // --- size attenuation
   vAccent = max(step(0.94, aSeed.x), fx.z);
   float variation = mix(0.7, 1.45, fract(aSeed.y * 13.7));
-  float size = uSize * variation * (1.0 + 0.35 * vAccent) * uScale / max(depth, 0.05);
-  size *= 1.0 + 0.3 * fx.y;
+  float restSize = uSize * variation * (1.0 + 0.35 * vAccent) * uScale / max(depth, 0.05);
+  float size = restSize * (1.0 + 0.3 * fx.y);
   size *= 1.0 + uEnergy * 0.9;
-  float clamped = clamp(size, 1.0, uMaxSize);
+  // The glow sprite (uGlow) spends its extra size on the halo; the core stays as large.
+  float clamped = clamp(size * (1.0 + 0.7 * uGlow), 1.0, uMaxSize);
   gl_PointSize = clamped;
 
   // --- alpha: low for most, brighter accent; fades right at the camera and far away
   float base = mix(mix(0.16, 0.42, aSeed.y), 0.9, vAccent);
-  float nearFade = smoothstep(0.4, 4.5, depth);
+  // Inside ~1.5 units of the lens a particle is gone, so nothing passes the camera as a big
+  // blurry disc; one whose resting size runs into the cap (it is that close) fades out
+  // instead of flattening into a disc. Resting size: scroll energy must not trigger it.
+  float nearFade = smoothstep(1.5, 5.0, depth) * (1.0 - smoothstep(0.6 * uMaxSize, uMaxSize, restSize));
   float farFade = 1.0 - smoothstep(22.0, 46.0, depth);
   // Sub-pixel points keep their energy instead of popping to a full pixel.
   float coverage = clamp(size, 0.35, 1.0);
@@ -270,6 +275,7 @@ void main() {
 export const particleFragment = /* glsl */ `
 uniform vec3 uColor;
 uniform vec3 uAccent;
+uniform float uGlow;
 
 varying float vAlpha;
 varying float vAccent;
@@ -285,7 +291,13 @@ void main() {
   q.y *= 1.0 + vStretch * 1.6;
 
   float d = length(q) * 2.0;
-  float alpha = (1.0 - smoothstep(0.2, 1.0, d)) * vAlpha;
+  float disc = 1.0 - smoothstep(0.2, 1.0, d);
+  // Glow without postprocessing (screens without bloom): a bright core about the size of the
+  // plain disc (the sprite is 1.7× larger) and a soft radial halo. Additive blending does the
+  // rest where particles overlap.
+  float core = 1.0 - smoothstep(0.05, 0.5, d);
+  float halo = exp(-d * d * 5.0) * (1.0 - smoothstep(0.7, 1.0, d));
+  float alpha = mix(disc, core + 0.32 * halo, uGlow) * vAlpha;
   if (alpha < 0.003) discard;
 
   gl_FragColor = vec4(mix(uColor, uAccent, vAccent), alpha);

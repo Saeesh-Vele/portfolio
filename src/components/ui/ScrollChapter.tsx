@@ -27,9 +27,16 @@ interface ScrollChapterProps {
 }
 
 /**
- * A pinned 3D chapter. The outer <section> is (1 + length) viewports tall and defines the
- * scroll span; the inner viewport-sized stage is pinned by GSAP ScrollTrigger for the whole
- * of it. The stage also exposes `--chapter-progress` (0..1) as a CSS variable.
+ * A pinned 3D chapter. The outer <section> is (1 + length) small viewports tall and defines
+ * the scroll span; the inner stage is `position: sticky` and one *dynamic* viewport tall
+ * (`.chapter-stage` in globals.css), so it stays pinned for the whole span. GSAP
+ * ScrollTrigger only reports progress. The stage also exposes `--chapter-progress` (0..1) as
+ * a CSS variable.
+ *
+ * Why sticky, not a GSAP pin: a GSAP pin freezes the stage's size and offset in px at refresh
+ * time, and with `ignoreMobileResize` (needed so the iOS address bar does not trigger
+ * refreshes mid-scroll) those px go stale as the bar collapses or expands — the bottom sheet
+ * ended up mid-screen. A sticky 100dvh stage follows the visible viewport natively.
  *
  * The height comes from CSS (`.chapter` in globals.css) so the desktop / mobile lengths
  * switch at the md breakpoint without a layout shift.
@@ -61,12 +68,12 @@ export function ScrollChapter({
     if (reducedMotion || !outerElement || !stageElement) return;
 
     gsap.registerPlugin(ScrollTrigger);
+    // The sticky stage is pinned while the section's top is above the viewport top and its
+    // bottom below the viewport bottom: exactly this trigger's range.
     const trigger = ScrollTrigger.create({
       trigger: outerElement,
       start: "top top",
       end: "bottom bottom",
-      pin: stageElement,
-      pinSpacing: false,
       onUpdate: (self) => {
         stageElement.style.setProperty("--chapter-progress", self.progress.toFixed(4));
         progressCallback.current?.(self.progress);
@@ -80,8 +87,8 @@ export function ScrollChapter({
     };
   }, [reducedMotion, length, mobileLength]);
 
-  // The element tree is identical in both modes: GSAP re-parents the pinned stage into its
-  // own wrapper, so React must never be asked to remove or replace the stage itself.
+  // The element tree is identical in both modes, so switching never remounts the children
+  // (their tickers and measured layout survive a reduced-motion change).
   const fallback = reducedMotion && reducedFallback !== undefined;
 
   return (
@@ -99,7 +106,7 @@ export function ScrollChapter({
     >
       <div
         ref={stage}
-        className={`relative w-full ${fallback ? "" : "h-svh overflow-hidden"} ${className ?? ""}`}
+        className={`w-full ${fallback ? "relative" : reducedMotion ? "relative h-svh overflow-hidden" : "chapter-stage"} ${className ?? ""}`}
       >
         {fallback ? reducedFallback : children}
       </div>

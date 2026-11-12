@@ -144,20 +144,24 @@ export function Capabilities() {
   const content = (
     <div
       ref={root}
-      className={`relative flex flex-col px-(--gutter) pb-6 pt-[calc(var(--nav-h)+1.25rem)] md:pb-10 md:pt-[calc(var(--nav-h)+1.75rem)] ${
+      // The section label is the global SectionHud: the heading starts just below its line.
+      className={`relative flex flex-col px-(--gutter) pb-6 pt-[calc(var(--nav-h)+2.5rem)] max-md:justify-center md:pb-10 md:pt-[calc(var(--nav-h)+2.5rem)] ${
         reducedMotion ? "min-h-svh" : "h-full"
       }`}
     >
-      <p className="label">{capabilities.label}</p>
-      <h2 data-split className="display mt-3 text-[clamp(2rem,4.4vw,3.5rem)]">
+      <h2 data-split className="display text-[clamp(2rem,4.4vw,3.5rem)]">
         {capabilities.heading}
       </h2>
 
-      {/* The clusters' band: whatever height is left between the heading and the columns. */}
+      {/* The clusters' band: whatever height is left between the heading and the columns.
+          Phones hold the shapes 2 × 2 in square cells, so the band is capped at its own
+          width: no dead space between the shapes and the column text. */}
       <div
         ref={band}
         aria-hidden
-        className={`my-3 min-h-0 flex-1 md:my-4 ${reducedMotion ? "min-h-48 md:min-h-64" : ""}`}
+        className={`my-3 min-h-0 flex-1 max-md:max-h-[calc(100vw-2*var(--gutter))] md:my-4 ${
+          reducedMotion ? "min-h-48 md:min-h-64" : ""
+        }`}
       />
 
       <div className={`grid grid-cols-12 gap-x-6 ${reducedMotion ? "gap-y-10" : ""}`}>

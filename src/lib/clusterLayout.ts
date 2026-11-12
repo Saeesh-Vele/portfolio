@@ -15,6 +15,14 @@ export const CLUSTER_PITCH = 0.32;
 export const CLUSTER_ASPECT = 1.7;
 /** Share of a box the shape fills; the rest is margin for drift and pointer scatter. */
 const FILL = 0.8;
+/** Phones' 2 × 2: the cells are already separated by the gap between them, so fill more. */
+const FILL_GRID = 0.9;
+/**
+ * The widest the current four shapes actually get (half-width / half-height, at any turn):
+ * they are about as wide as they are tall (≈ 1.03, see formations/clusters.ts). The 2 × 2
+ * uses this rather than the CLUSTER_ASPECT bound so the shapes can fill their cells.
+ */
+const GRID_ASPECT = 1.1;
 /** Narrow screens: a band at least this tall (px) holds the clusters 2 × 2, else in a row. */
 const TWO_ROWS_MIN = 150;
 
@@ -26,8 +34,8 @@ export interface Box {
 }
 
 /** Shape scale (its half-height in px) that fits a box. */
-const fit = (width: number, height: number) =>
-  FILL * Math.max(0, Math.min(height / 2, width / 2 / CLUSTER_ASPECT));
+const fit = (width: number, height: number, fill = FILL, aspect = CLUSTER_ASPECT) =>
+  fill * Math.max(0, Math.min(height / 2, width / 2 / aspect));
 
 /**
  * Writes `boxes` (per cluster: centre x, centre y, scale — all px) and `home` (the same for
@@ -46,8 +54,15 @@ export function layoutClusters(
 ) {
   const n = MAX_CLUSTERS;
   let largest = 0;
-  const put = (i: number, left: number, top: number, width: number, height: number) => {
-    const scale = fit(width, height);
+  const put = (
+    i: number,
+    left: number,
+    top: number,
+    width: number,
+    height: number,
+    grid = false,
+  ) => {
+    const scale = grid ? fit(width, height, FILL_GRID, GRID_ASPECT) : fit(width, height);
     boxes[i * 3] = left + width / 2;
     boxes[i * 3 + 1] = top + height / 2;
     boxes[i * 3 + 2] = scale;
@@ -60,7 +75,7 @@ export function layoutClusters(
     const w = band.width / 2;
     const h = band.height / 2;
     for (let i = 0; i < n; i++) {
-      put(i, band.left + (i % 2) * w, band.top + Math.floor(i / 2) * h, w, h);
+      put(i, band.left + (i % 2) * w, band.top + Math.floor(i / 2) * h, w, h, true);
     }
   } else {
     let total = 0;

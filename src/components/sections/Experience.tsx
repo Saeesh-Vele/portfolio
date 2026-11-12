@@ -9,6 +9,7 @@ import {
   type Experience as ExperienceEntry,
 } from "@/content/content";
 import { useLineReveal } from "@/lib/lineReveal";
+import { sheetShift } from "@/lib/sheetShift";
 import { frame } from "@/store/site";
 import {
   activeStation,
@@ -77,9 +78,13 @@ function StationPanel({
       ref={root}
       data-active={active}
       aria-current={active ? "step" : undefined}
-      className={`station-panel relative row-start-1 ${PANEL_PLACEMENT[side]}`}
+      // Mobile: only the active panel is in flow, so the sheet hugs it; the others are laid
+      // over it (bottom-aligned) while they fade out.
+      className={`station-panel relative row-start-1 ${PANEL_PLACEMENT[side]} ${
+        active ? "" : "max-md:absolute max-md:inset-x-0 max-md:bottom-0"
+      }`}
     >
-      {/* Desktop: a soft pool of background behind the text. Mobile: the sheet is solid. */}
+      {/* Desktop: a soft pool of background behind the text. Mobile: the sheet's scrim. */}
       <div aria-hidden className="scrim absolute -inset-x-24 -inset-y-20 hidden md:block" />
       <div className="relative">
         <StationBody entry={entry} split />
@@ -91,10 +96,9 @@ function StationPanel({
 /** Reduced motion: a plain vertical timeline over the static pipeline. */
 function ExperienceList() {
   return (
-    <div className="px-(--gutter) pb-24 pt-[calc(var(--nav-h)+2rem)]">
-      <p className="label">{copy.label}</p>
+    <div className="px-(--gutter) pb-24 pt-[calc(var(--nav-h)+2.75rem)]">
       <h2 className="sr-only">{copy.heading}</h2>
-      <ol className="mt-8 max-w-2xl border-l border-hairline bg-bg/85">
+      <ol className="max-w-2xl border-l border-hairline bg-bg/85">
         {experienceChronological.map((entry) => (
           <li key={entry.slug} className="relative py-7 pl-6 pr-4 md:pl-10">
             <span aria-hidden className="absolute -left-px top-9 block h-px w-4 bg-glacier md:w-6" />
@@ -118,15 +122,22 @@ export function Experience() {
   const [active, setActive] = useState(-1);
   const bar = useRef<HTMLSpanElement>(null);
   const tag = useRef<HTMLParagraphElement>(null);
+  const hud = useRef<HTMLParagraphElement>(null);
+  const sheetBody = useRef<HTMLOListElement>(null);
+  const showing = useRef(false);
 
   const onProgress = useCallback((progress: number) => {
-    setActive(activeStation(progress));
+    const station = activeStation(progress);
+    showing.current = station >= 0;
+    setActive(station);
     if (bar.current) bar.current.style.transform = `scaleY(${progress.toFixed(4)})`;
   }, []);
 
-  // The "NOW" tag follows the current station's ring (projected by the particle field).
   useEffect(() => {
+    const shift = sheetShift("experience", hud, sheetBody, showing);
+    // The "NOW" tag follows the current station's ring (projected by the particle field).
     const update = () => {
+      shift();
       const element = tag.current;
       if (!element) return;
       const { x, y, opacity } = frame.tag;
@@ -138,7 +149,10 @@ export function Experience() {
       }
     };
     gsap.ticker.add(update);
-    return () => gsap.ticker.remove(update);
+    return () => {
+      gsap.ticker.remove(update);
+      frame.viewShift.experience = 0;
+    };
   }, []);
 
   const shown = Math.max(active, 0);
@@ -156,6 +170,7 @@ export function Experience() {
 
         {/* HUD — station readout. The section label is the global SectionHud, top left. */}
         <p
+          ref={hud}
           aria-hidden
           className="label absolute right-(--gutter) top-[calc(var(--nav-h)+0.75rem)] pr-3 md:pr-0"
         >
@@ -185,9 +200,17 @@ export function Experience() {
           {copy.nowTag}
         </p>
 
-        {/* Panels — stacked in one grid row; only the active one is visible */}
-        <div className="absolute inset-x-0 bottom-0 border-t border-hairline bg-surface md:inset-y-0 md:border-0 md:bg-transparent">
-          <ol className="grid grid-cols-12 gap-x-6 px-(--gutter) pb-6 pt-5 md:h-full md:items-center md:py-0">
+        {/* Panels — stacked in one grid row; only the active one is visible. Mobile: a
+            bottom sheet with no card, just a scrim the scene fades into. */}
+        <div
+          data-empty={active < 0}
+          className="sheet absolute inset-x-0 bottom-0 md:inset-y-0"
+        >
+          <span aria-hidden className="sheet-rule hairline md:hidden" />
+          <ol
+            ref={sheetBody}
+            className="relative grid grid-cols-12 gap-x-6 px-(--gutter) md:h-full md:items-center"
+          >
             {experienceChronological.map((entry, index) => (
               <StationPanel
                 key={entry.slug}
