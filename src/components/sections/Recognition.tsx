@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { certifications, featuredProjects, recognition } from "@/content/content";
+import { a11y, certifications, featuredProjects, recognition } from "@/content/content";
 import { useSeen } from "@/lib/hooks";
 import { useLineReveal } from "@/lib/lineReveal";
 import { scrollToSpan } from "@/lib/scroll";
@@ -84,7 +84,10 @@ export function Recognition() {
                     >
                       {recognition.credentialLabel}{" "}
                       <span aria-hidden>{recognition.credentialGlyph}</span>
-                      <span className="sr-only"> — {certification.name}</span>
+                      <span className="sr-only">
+                        {" "}
+                        — {certification.name} {a11y.newTab}
+                      </span>
                     </a>
                   ) : null}
                 </li>

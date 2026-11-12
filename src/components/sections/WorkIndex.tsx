@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  a11y,
   featuredProjects,
   moreWork,
   work,
@@ -114,7 +115,10 @@ export function WorkIndex() {
                     className="text-text transition-colors duration-300 hover:text-glacier"
                   >
                     {work.repoLabel} <span aria-hidden>{work.linkGlyph}</span>
-                    <span className="sr-only"> — {row.title}</span>
+                    <span className="sr-only">
+                      {" "}
+                      — {row.title} {a11y.newTab}
+                    </span>
                   </a>
                 ) : null}
                 {row.liveUrl ? (
@@ -125,7 +129,10 @@ export function WorkIndex() {
                     className="text-text transition-colors duration-300 hover:text-glacier"
                   >
                     {work.liveLabel} <span aria-hidden>{work.linkGlyph}</span>
-                    <span className="sr-only"> — {row.title}</span>
+                    <span className="sr-only">
+                      {" "}
+                      — {row.title} {a11y.newTab}
+                    </span>
                   </a>
                 ) : null}
               </p>

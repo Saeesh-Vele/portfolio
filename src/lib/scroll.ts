@@ -11,14 +11,17 @@ export function setLenis(instance: Lenis | null) {
 
 const expoOut = (t: number) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t));
 
-/** Scrolls to position `at` (0..1) inside the scroll span of the section with this id. */
-export function scrollToSpan(id: string, at: number) {
+/**
+ * Scrolls to position `at` (0..1) inside the scroll span of the section with this id.
+ * `duration` (seconds) applies to the smooth scroll only.
+ */
+export function scrollToSpan(id: string, at: number, duration = 2.4) {
   const element = document.querySelector<HTMLElement>(`[data-section="${id}"]`);
   if (!element) return;
   const rect = element.getBoundingClientRect();
   const top = Math.round(rect.top + window.scrollY + at * rect.height);
   if (lenis) {
-    lenis.scrollTo(top, { duration: 2.4, easing: expoOut, force: true });
+    lenis.scrollTo(top, { duration, easing: expoOut, force: true });
   } else {
     window.scrollTo({ top, behavior: "auto" });
   }

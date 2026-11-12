@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { CanvasRoot } from "@/components/canvas/CanvasRoot";
 import { Cursor } from "@/components/ui/Cursor";
 import { DebugGate } from "@/components/ui/DebugGate";
@@ -6,30 +8,64 @@ import { Loader } from "@/components/ui/Loader";
 import { Nav } from "@/components/ui/Nav";
 import { SectionHud } from "@/components/ui/SectionHud";
 import { SiteRuntime } from "@/components/ui/SiteRuntime";
-import { a11y, site } from "@/content/content";
+import { a11y, contact, site } from "@/content/content";
 import { LOADER_SESSION_KEY } from "@/lib/constants";
+import { siteUrl } from "@/lib/siteUrl";
 import { geistMono, geistSans, instrumentSerif } from "./fonts";
 import "./globals.css";
-
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: site.title,
   description: site.description,
+  applicationName: site.name,
+  authors: [{ name: site.name, url: siteUrl }],
+  alternates: { canonical: "/" },
+  // og:image / twitter:image come from opengraph-image.tsx and twitter-image.tsx.
   openGraph: {
     title: site.title,
     description: site.description,
-    type: "website",
-    // TODO(saeesh): add an OG image (see content.ts → site.ogImage).
-    images: site.ogImage ? [site.ogImage] : undefined,
+    url: "/",
+    siteName: site.name,
+    locale: "en_IN",
+    type: "profile",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: site.title,
+    description: site.description,
   },
 };
+
+/** schema.org Person. No phone number, by rule. */
+const personJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Person",
+  name: site.name,
+  jobTitle: site.role,
+  url: siteUrl,
+  description: site.description,
+  alumniOf: { "@type": "CollegeOrUniversity", name: site.college },
+  address: {
+    "@type": "PostalAddress",
+    addressLocality: site.city,
+    addressCountry: site.countryCode,
+  },
+  sameAs: [contact.linkedinHref, contact.githubHref],
+};
+// `<` escaped so the JSON can never close the script element.
+const personJsonLdHtml = JSON.stringify(personJsonLd).replace(/</g, "\\u003c");
 
 export const viewport: Viewport = {
   themeColor: "#07090C",
   colorScheme: "dark",
 };
+
+/**
+ * Vercel Analytics + Speed Insights load their scripts from /_vercel/*, which only exists on
+ * Vercel deployments (VERCEL=1 at build time). Elsewhere (`next start`) they would 404.
+ */
+const onVercel = process.env.VERCEL === "1";
 
 /**
  * Runs before first paint. On repeat visits in the same session (or with reduced motion) the
@@ -48,6 +84,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body>
         <script dangerouslySetInnerHTML={{ __html: prePaintScript }} />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: personJsonLdHtml }}
+        />
         <noscript>
           <style>{`.reveal-line>span{transform:none!important}.fade-in{opacity:1!important}.loader{display:none!important}`}</style>
         </noscript>
@@ -65,6 +105,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <DebugGate />
         <Cursor />
         <div className="relative z-10">{children}</div>
+        {onVercel ? (
+          <>
+            <Analytics />
+            <SpeedInsights />
+          </>
+        ) : null}
       </body>
     </html>
   );

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Clock } from "@/components/ui/Clock";
-import { contact, contactSection as copy, hero } from "@/content/content";
+import { a11y, contact, contactSection as copy, hero } from "@/content/content";
 import { useSeen } from "@/lib/hooks";
 import { useLineReveal } from "@/lib/lineReveal";
 import { contactSection } from "./contact.config";
@@ -96,16 +96,19 @@ export function Contact() {
         <li>
           <a href={contact.whatsappHref} {...external} className={LINK}>
             {copy.actions.whatsapp}
+            <span className="sr-only"> {a11y.newTab}</span>
           </a>
         </li>
         <li>
           <a href={contact.linkedinHref} {...external} className={LINK}>
             {copy.actions.linkedin} <span aria-hidden>{copy.externalGlyph}</span>
+            <span className="sr-only"> {a11y.newTab}</span>
           </a>
         </li>
         <li>
           <a href={contact.githubHref} {...external} className={LINK}>
             {copy.actions.github} <span aria-hidden>{copy.externalGlyph}</span>
+            <span className="sr-only"> {a11y.newTab}</span>
           </a>
         </li>
         <li>

@@ -50,12 +50,13 @@ export function Clock({
     () => formatter(timeZone, seconds).format(new Date()),
     () => placeholder,
   );
+  // A plain span can't carry an aria-label: the label is visually hidden text instead, and
+  // the (redundant) prefix is hidden from assistive tech.
   return (
-    <span aria-label={ariaLabel}>
-      <span aria-hidden>
-        {prefix ? `${prefix} ` : ""}
-        {time} {zoneLabel}
-      </span>
+    <span>
+      <span className="sr-only">{ariaLabel}: </span>
+      {prefix ? <span aria-hidden>{prefix} </span> : null}
+      {time} {zoneLabel}
     </span>
   );
 }

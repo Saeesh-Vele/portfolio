@@ -144,6 +144,9 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
 | Adaptive quality governor + bloom gate | `src/components/canvas/Scene.tsx` (cap in `useSite.tierCap`) |
 | Fonts | `src/app/fonts.ts`; re-subset with `scripts/subset-fonts.sh` after adding copy with new non-Latin characters |
 | 404 (particles in pure NOISE: no sections → no holds) | `src/app/not-found.tsx` |
+| Share card (OG + Twitter, built at build time with `next/og`) | `src/app/opengraph-image.tsx` (`twitter-image.tsx` re-exports it; Instrument Serif TTF in `src/app/og/`) |
+| SEO: metadata, canonical, JSON-LD Person, Vercel Analytics / Speed Insights (only when `VERCEL=1`) | `src/app/layout.tsx`; origin from `NEXT_PUBLIC_SITE_URL` via `src/lib/siteUrl.ts` |
+| sitemap / robots / web manifest / apple-touch-icon | `src/app/sitemap.ts`, `robots.ts`, `manifest.ts`, `apple-icon.png` (PNG icons in `public/icons/`) |
 
 ### How to add a section (later phases)
 
@@ -245,6 +248,9 @@ Per-frame values (smoothed progress, energy, pointer) live in the mutable `frame
 - Mobile: same camera path and moments, fewer particles, no postprocessing.
 - `prefers-reduced-motion`: camera snaps between keyframes, no turbulence, no scroll morphs,
   no Lenis, no pinning.
+- Keyboard: 2px glacier `:focus-visible` ring; skip link first; links that open a new tab carry
+  visually hidden `a11y.newTab` text; Escape closes the mobile menu and the expanded case-study
+  sheet; focusing a hidden WORK case study travels the chapter to it. Hit targets ≥ 24px.
 - Real DOM text for everything (SEO + screen readers). The particle name is decorative
   (`aria-hidden`); there is a real `h1`.
 - Lighthouse targets: Performance ≥85 on mobile, Accessibility ≥95.

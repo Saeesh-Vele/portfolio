@@ -125,9 +125,7 @@ export const site = {
   location: "Mumbai, India",
   graduation: "May 2027",
   resumePath: "/Saeesh_Vele_Resume.pdf",
-  // TODO(saeesh): OG image not designed yet — add /public/og.png and wire it in layout.tsx.
-  ogImage: undefined as string | undefined,
-  /** Used by JSON-LD (alumniOf) and the generated share image. */
+  /** Used by JSON-LD (alumniOf / address) and the generated share image (alt). */
   college: "Saraswati College of Engineering",
   city: "Mumbai",
   countryCode: "IN",
@@ -154,6 +152,10 @@ export const a11y = {
   skipToContent: "Skip to content",
   /** The real, visually hidden h1. The particle name is decorative. */
   heroHeading: "Saeesh Vele — Data & AI Engineer",
+  /** Appended (visually hidden) to every link that opens in a new tab. */
+  newTab: "(opens in a new tab)",
+  /** Accessible name of the expanded case-study sheet on phones. */
+  caseSheet: "Case study",
 } as const;
 
 export const nav = {
@@ -783,7 +785,6 @@ export const footer = {
 // ---------------------------------------------------------------------------------------
 
 export const TODOS: string[] = [
-  "OG image: design /public/og.png and set site.ogImage.",
   "RogRakshak: live URL.",
   "BH.DSA: any usage figure.",
   "Certifications: credential URLs.",

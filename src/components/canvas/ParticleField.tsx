@@ -288,6 +288,7 @@ function Field({ viewport, tier }: { viewport: Viewport; tier: Tier }) {
     (u.uClusterBasis.value as THREE.Matrix3).setFromMatrix4(cam.matrixWorld);
     const recognitionAt = timeline ? sectionAt(timeline, "recognition", frame.progress) : null;
     u.uLift.value = reducedMotion || recognitionAt === null ? 1 : numeralLift(recognitionAt);
+    frame.debug.lift = u.uLift.value;
     const clusterFocus = u.uClusterFocus.value as Float32Array;
     for (let i = 0; i < MAX_CLUSTERS; i++) {
       clusterFocus[i] = THREE.MathUtils.damp(clusterFocus[i], frame.clusterHover[i], 6, dt);

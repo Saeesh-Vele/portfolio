@@ -199,7 +199,7 @@ export function Capabilities() {
               ) : null}
               {/* Two sub-columns on phones and on short desktop viewports: the height saved
                   goes to the clusters' band. */}
-              <ul className="label mt-3 grid grid-cols-2 items-start gap-x-4 gap-y-1.5 leading-[1.35] text-text md:mt-4 md:grid-cols-1 md:gap-y-1 md:[@media(max-height:860px)]:grid-cols-2">
+              <ul className="label mt-3 grid grid-cols-2 items-start gap-x-4 leading-[1.35] text-text md:mt-4 md:grid-cols-1 md:[@media(max-height:860px)]:grid-cols-2">
                 {group.items.map((item, i) =>
                   evidence[c][i].length > 0 ? (
                     <li key={item}>
@@ -214,17 +214,26 @@ export function Capabilities() {
                           const hovering = event.detail > 0 && column === c;
                           setShown(active === item && !hovering ? null : [c, item]);
                         }}
-                        className={`cursor-pointer border-b text-left uppercase tracking-[0.12em] transition-colors duration-300 ${
-                          active === item
-                            ? "border-glacier text-glacier"
-                            : "border-hairline hover:border-muted"
+                        // 24px tall rows: a WCAG 2.5.8 target size. The underline is on the text.
+                        className={`group flex min-h-6 cursor-pointer items-center text-left uppercase tracking-[0.12em] transition-colors duration-300 ${
+                          active === item ? "text-glacier" : ""
                         }`}
                       >
-                        {item}
+                        <span
+                          className={`border-b transition-colors duration-300 ${
+                            active === item
+                              ? "border-glacier"
+                              : "border-hairline group-hover:border-muted"
+                          }`}
+                        >
+                          {item}
+                        </span>
                       </button>
                     </li>
                   ) : (
-                    <li key={item}>{item}</li>
+                    <li key={item} className="flex min-h-6 items-center">
+                      {item}
+                    </li>
                   ),
                 )}
               </ul>

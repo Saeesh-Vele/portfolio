@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollChapter } from "@/components/ui/ScrollChapter";
-import { featuredProjects, work, type Project } from "@/content/content";
+import { a11y, featuredProjects, work, type Project } from "@/content/content";
 import { useLineReveal } from "@/lib/lineReveal";
 import { lockScroll, scrollToSpan } from "@/lib/scroll";
 import { workGraph } from "@/lib/workGraph";
@@ -41,7 +41,10 @@ function ProjectLinks({ project }: { project: Project }) {
           className="border-b border-hairline pb-0.5 text-text transition-colors duration-300 hover:border-glacier"
         >
           {link.label} <span aria-hidden>{work.linkGlyph}</span>
-          <span className="sr-only"> — {project.title}</span>
+          <span className="sr-only">
+            {" "}
+            — {project.title} {a11y.newTab}
+          </span>
         </a>
       ))}
     </p>
@@ -133,11 +136,14 @@ function CasePanel({
   index,
   active,
   side,
+  onFocusInactive,
 }: {
   project: Project;
   index: number;
   active: boolean;
   side: "left" | "right";
+  /** Keyboard focus landed in a hidden panel: travel to it so the focus is visible. */
+  onFocusInactive: (index: number) => void;
 }) {
   const root = useRef<HTMLLIElement>(null);
   useLineReveal(root, active);
@@ -146,6 +152,9 @@ function CasePanel({
       ref={root}
       data-active={active}
       aria-current={active ? "step" : undefined}
+      onFocus={() => {
+        if (!active) onFocusInactive(index);
+      }}
       className={`station-panel relative row-start-1 ${PANEL_PLACEMENT[side]}`}
     >
       <div aria-hidden className="scrim absolute -inset-x-24 -inset-y-16 hidden md:block" />
@@ -230,12 +239,33 @@ export function Work() {
   // Mobile: the sheet can expand to the full case study. Page scrolling (which drives the
   // camera) is locked while it is open, so the sheet's own scroll is the only one.
   const [expanded, setExpanded] = useState(false);
-  useEffect(() => {
-    if (!expanded) return;
-    lockScroll(true);
-    return () => lockScroll(false);
-  }, [expanded]);
+  const moreButton = useRef<HTMLButtonElement>(null);
+  const sheet = useRef<HTMLDivElement>(null);
   const open = expanded && focused && mobile;
+  useEffect(() => {
+    if (!open) return;
+    lockScroll(true);
+    sheet.current?.focus({ preventScroll: true });
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setExpanded(false);
+      moreButton.current?.focus({ preventScroll: true });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      lockScroll(false);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  // Tab order: each case study's links are reached in project order; focusing one travels
+  // the chapter to that project so the focused link is on screen.
+  const focusProject = useCallback(
+    (index: number) => {
+      if (viewport) scrollToSpan(workSection.id, projectAt(index, viewport), 1.2);
+    },
+    [viewport],
+  );
 
   return (
     <ScrollChapter
@@ -324,12 +354,16 @@ export function Work() {
                 index={index}
                 active={index === active}
                 side={viewport ? workPanelSide(index, viewport) : index % 2 === 0 ? "left" : "right"}
+                onFocusInactive={focusProject}
               />
             ))}
           </ol>
           <button
+            ref={moreButton}
             type="button"
             aria-expanded={open}
+            // Out of the tab order while the sheet is faded out (graph overview).
+            tabIndex={focused ? undefined : -1}
             onClick={() => setExpanded(true)}
             className={`label absolute bottom-5 right-(--gutter) cursor-pointer text-text md:hidden ${
               focused ? "pointer-events-auto" : ""
@@ -342,6 +376,10 @@ export function Work() {
         {/* Mobile: the full case study, scrollable inside the expanded sheet. */}
         {open ? (
           <div
+            ref={sheet}
+            role="dialog"
+            aria-label={`${a11y.caseSheet}: ${featuredProjects[active].title}`}
+            tabIndex={-1}
             data-lenis-prevent
             className="absolute inset-x-0 bottom-0 z-10 max-h-[calc(100svh-var(--nav-h)-1rem)] overflow-y-auto overscroll-contain border-t border-hairline bg-surface px-(--gutter) pb-6 pt-5 md:hidden"
           >
@@ -354,7 +392,10 @@ export function Work() {
             <button
               type="button"
               aria-expanded
-              onClick={() => setExpanded(false)}
+              onClick={() => {
+                setExpanded(false);
+                moreButton.current?.focus({ preventScroll: true });
+              }}
               className="label mt-6 cursor-pointer text-text"
             >
               {work.less} <span aria-hidden>{work.lessGlyph}</span>

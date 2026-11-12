@@ -130,5 +130,7 @@ export const frame = {
     bloom: "-",
     /** Seconds the frame time has stayed over budget (adaptive quality). */
     slow: 0,
+    /** RECOGNITION: 0..1 rise of the podium numeral (uLift). */
+    lift: 0,
   },
 };

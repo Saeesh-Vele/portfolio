@@ -47,6 +47,7 @@ export default function DebugOverlay() {
           ...qualityLog.map((entry) => `       ${entry}`),
           `BLOOM  ${bloom}`,
           `FORM   ${frame.debug.formation || "-"}`,
+          `LIFT   ${frame.debug.lift.toFixed(2)}`,
           `DPR    ${frame.debug.dpr.toFixed(2)}  (device ${window.devicePixelRatio.toFixed(2)})`,
           `SCROLL ${(frame.progress * 100).toFixed(1)}%${reducedMotion ? "  REDUCED MOTION" : ""}`,
         ].join("\n");
