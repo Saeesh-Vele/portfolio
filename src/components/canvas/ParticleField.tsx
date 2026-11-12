@@ -5,7 +5,6 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { experienceQ, stationLevels } from "@/components/sections/experience.config";
 import { numeralLift } from "@/components/sections/recognition.config";
-import { clusterSpread } from "@/components/sections/skills.config";
 import { projectFocus, workQ } from "@/components/sections/work.config";
 import { experienceChronological } from "@/content/content";
 import {
@@ -17,6 +16,7 @@ import {
   MAX_STATS,
 } from "@/lib/constants";
 import { mulberry32, PARTICLE_COUNT, type Tier } from "@/lib/device";
+import { CLUSTERS_VIEW } from "@/lib/phase4Layout";
 import { pathFrame, pipelinePath, STATION, stationU } from "@/lib/pipelinePath";
 import { SECTIONS, type Viewport } from "@/lib/sections";
 import { formationAt, sectionAt } from "@/lib/timeline";
@@ -37,6 +37,7 @@ const FLOW_SPEED = 0.016;
 const scratchRay = new THREE.Vector3();
 const scratchTag = new THREE.Vector3();
 const scratchNode = new THREE.Vector3();
+const scratchBox = new THREE.Vector3();
 
 interface FormationAttributes {
   position: THREE.BufferAttribute;
@@ -162,7 +163,10 @@ function Field({ viewport, tier }: { viewport: Viewport; tier: Tier }) {
           uFocus: { value: new Float32Array(MAX_PROJECTS) },
           uNode: { value: new Float32Array(MAX_NODES * 3) },
           uClusterFocus: { value: new Float32Array(MAX_CLUSTERS) },
-          uSpread: { value: 1 },
+          uSpread: { value: new Float32Array(MAX_CLUSTERS).fill(1) },
+          uClusterBox: { value: new Float32Array(MAX_CLUSTERS * 4) },
+          uClusterHome: { value: new THREE.Vector4() },
+          uClusterBasis: { value: new THREE.Matrix3() },
           uLift: { value: 1 },
           uColor: { value: new THREE.Color(COLORS.text) },
           uAccent: { value: new THREE.Color(COLORS.glacier) },
@@ -250,11 +254,39 @@ function Field({ viewport, tier }: { viewport: Viewport; tier: Tier }) {
     frame.projectFocus.set(focus);
     u.uNode.value = nodes.flat;
 
-    // --- CLUSTERS separate and the PODIUM numeral rises as their sections scroll in;
-    //     the hovered capability column's cluster eases brighter
-    const skillsAt = timeline ? sectionAt(timeline, "skills", frame.progress) : null;
+    // --- CLUSTERS: the DOM says where each cluster's box is on screen and how far it has
+    //     separated (frame.clusterBox / clusterHome / clusterSpread, in px). Each box is
+    //     placed at a fixed distance in front of the camera, facing it, so the shapes stay
+    //     exactly where the layout left room for them. The hovered column's cluster eases
+    //     brighter. The PODIUM numeral rises as its section scrolls in.
+    const cam = state.camera;
+    const { width: viewW, height: viewH } = state.size;
+    const worldPerPx = (2 * CLUSTERS_VIEW.distance) / (cam.projectionMatrix.elements[5] * viewH);
+    const placeBox = (x: number, y: number, scale: number) => {
+      // Not measured yet: a small mass at the centre of the screen.
+      const measured = frame.clusterHome[2] > 0;
+      const px = measured ? x : viewW / 2;
+      const py = measured ? y : viewH / 2;
+      scratchBox
+        .set((px - viewW / 2) * worldPerPx, (viewH / 2 - py) * worldPerPx, -CLUSTERS_VIEW.distance)
+        .applyMatrix4(cam.matrixWorld);
+      return (measured ? scale : viewH * 0.06) * worldPerPx;
+    };
+    const boxes = u.uClusterBox.value as Float32Array;
+    const spread = u.uSpread.value as Float32Array;
+    for (let i = 0; i < MAX_CLUSTERS; i++) {
+      const o = i * 3;
+      const scale = placeBox(frame.clusterBox[o], frame.clusterBox[o + 1], frame.clusterBox[o + 2]);
+      boxes[i * 4] = scratchBox.x;
+      boxes[i * 4 + 1] = scratchBox.y;
+      boxes[i * 4 + 2] = scratchBox.z;
+      boxes[i * 4 + 3] = scale;
+      spread[i] = reducedMotion ? 1 : frame.clusterSpread[i];
+    }
+    const homeScale = placeBox(frame.clusterHome[0], frame.clusterHome[1], frame.clusterHome[2]);
+    (u.uClusterHome.value as THREE.Vector4).set(scratchBox.x, scratchBox.y, scratchBox.z, homeScale);
+    (u.uClusterBasis.value as THREE.Matrix3).setFromMatrix4(cam.matrixWorld);
     const recognitionAt = timeline ? sectionAt(timeline, "recognition", frame.progress) : null;
-    u.uSpread.value = reducedMotion || skillsAt === null ? 1 : clusterSpread(skillsAt);
     u.uLift.value = reducedMotion || recognitionAt === null ? 1 : numeralLift(recognitionAt);
     const clusterFocus = u.uClusterFocus.value as Float32Array;
     for (let i = 0; i < MAX_CLUSTERS; i++) {

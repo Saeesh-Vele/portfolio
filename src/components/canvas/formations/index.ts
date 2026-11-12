@@ -19,7 +19,8 @@ import { stats } from "./stats";
  *   20       GRAPH node: x = bitmask of the projects it belongs to, y = random, z = 1 for techs
  *   21       GRAPH edge: x = project bitmask, y = position along the edge 0..1,
  *            z = start node + 16 * end node (indices into uNode)
- *   30..33   CLUSTERS cluster (index + 30): xyz = offset back to the shared centre
+ *   30..33   CLUSTERS cluster (index + 30): the position is local to the cluster's shape,
+ *            which the shader places in its on-screen box (see src/lib/clusterLayout.ts)
  *   40       PODIUM step (static)
  *   41       PODIUM numeral: x = how far it rises, y = random
  *   50       HORIZON terrain point (swells slowly in the shader)

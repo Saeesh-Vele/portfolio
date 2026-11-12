@@ -58,10 +58,11 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
 
 ## Content rules
 
-- Skill evidence is derived, never hand-mapped: a capability shows "USED IN →" with every
-  project (featured, then `moreWork`) and role whose `stack` lists it, matched by name
-  ignoring case. A skill with no matching stack entry shows nothing. To give a skill evidence,
-  add it to the relevant `stack` in `content.ts`.
+- Skill evidence is derived: a capability shows "USED IN →" with every project (featured, then
+  `moreWork`) and role whose `stack` lists it, matched by name ignoring case. Skills that are
+  not a literal stack entry get evidence only through `skillEvidenceAliases` in `content.ts`
+  (named sources, or the stack entries that imply the skill) — never by adding fake stack
+  entries. A skill in neither shows nothing (Node.js, Express, Google Cloud).
 - No skill levels, bars or percentages anywhere.
 - All copy, links and numbers live in `src/content/content.ts` (typed). Components never
   hardcode copy.
@@ -96,8 +97,10 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
    parameter + `uTime` · `11..18` PIPELINE station, loops upstream until `uStation[i]` assembles
    it into its ring · `20` GRAPH node / `21` GRAPH edge, carrying a bitmask of the projects they
    belong to so `uFocus[project]` lights one project's node, edges and techs and dims the rest;
-   edge particles drift between two `uNode` positions · `30..33` CLUSTERS cluster, slides out
-   from a shared centre as `uSpread` runs 0→1 and brightens with `uClusterFocus[i]` · `40` PODIUM
+   edge particles drift between two `uNode` positions · `30..33` CLUSTERS cluster, whose
+   positions are local to its shape (lattice / neural net / planes / shell); the shader places
+   the shape in its on-screen box `uClusterBox[i]`, sliding it out of the merged mass
+   `uClusterHome` as `uSpread[i]` runs 0→1, and brightens it with `uClusterFocus[i]` · `40` PODIUM
    step / `41` PODIUM numeral, which rises out of its step with `uLift` · `50` HORIZON terrain
    point, with a very slow swell. Both ends of a morph are placed, then mixed by the morph progress. A new
    behaviour = a new `aux.w` range + a branch in `place()`.
@@ -130,6 +133,7 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
 | Line-by-line masked reveal (SplitText) | `src/lib/lineReveal.ts` |
 | WORK graph model, derived from content (three-free) | `src/lib/workGraph.ts` |
 | World placement of CLUSTERS / PODIUM / HORIZON (three-free) | `src/lib/phase4Layout.ts` |
+| CLUSTERS ↔ DOM band alignment (three-free) | `src/lib/clusterLayout.ts` |
 | Skill evidence ("USED IN →"), derived from stacks | `src/lib/skillEvidence.ts` |
 | All-work index (plain DOM, solid background, not a 3D section) | `src/components/sections/WorkIndex.tsx` |
 | Performance overlay (`?debug=1` only) | `src/components/ui/DebugGate.tsx` → `DebugOverlay.tsx` |
@@ -188,9 +192,14 @@ Per-frame values (smoothed progress, energy, pointer) live in the mutable `frame
   ShikshaSetu, AURORA, PredictX, BH.DSA, NeuroPhysio. The graph's tech nodes, edges, stops and
   camera keyframes are all derived from `featuredProjects`; reorder or edit stacks in
   `content.ts` and they follow. `moreWork` items appear only in the All-work index.
-- CLUSTERS, PODIUM and HORIZON belong to normal-flow sections (not pinned): their scroll-driven
-  uniforms run on the way in (`at` < 0), from `clusterSpread` / `numeralLift` in the section
-  configs. HORIZON is the calmest state: `ParticleField` holds scroll energy and drift down
+- CLUSTERS is a short pinned chapter (1.5 viewports; 2.2 on phones, which step through the
+  columns one panel at a time). The clusters are placed in screen space, not world space: the
+  Capabilities section measures the empty band between its heading and columns every frame and
+  writes one box per cluster to `frame.clusterBox` (plus `frame.clusterSpread`, scrubbed with
+  the column reveals from `skills.config.ts`). Shapes are normalised to fit their box, so a
+  cluster cannot overlap the heading or the column text at any viewport size.
+- PODIUM and HORIZON belong to normal-flow sections (not pinned): their scroll-driven
+  uniforms run on the way in (`at` < 0), from `numeralLift` in the section config. HORIZON is the calmest state: `ParticleField` holds scroll energy and drift down
   while it is active.
 - HERO (Phase 1, built): particles assemble into "SAEESH VELE"; on scroll the camera pushes
   THROUGH the name.
@@ -203,7 +212,8 @@ Per-frame values (smoothed progress, energy, pointer) live in the mutable `frame
 - PROJECTS: floating 3D node graph (nodes = projects, edges = shared tech); scroll rotates it;
   camera dives into each featured node, which expands into its case-study panel; edges light up
   for shared tech.
-- SKILLS: four particle clusters (Data / AI / Web / Cloud) that separate as you scroll.
+- SKILLS: one merged mass separates into four shapes as the columns reveal: Data = cubic
+  lattice, AI = three-layer neural net, Web = stacked planes, Cloud & data stores = shell.
 - ACHIEVEMENTS: particles form a podium; a "3" rises (NexBuildOn Hack 2026); certifications
   listed alongside.
 - CONTACT: camera pulls back; particles settle into a calm 3D terrain/horizon grid.

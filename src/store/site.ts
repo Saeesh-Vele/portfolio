@@ -77,6 +77,15 @@ export const frame = {
   nodes: new Float32Array(MAX_NODES * 4),
   /** CLUSTERS: 1 for the capability column under the pointer / last tapped, else 0. */
   clusterHover: new Float32Array(MAX_CLUSTERS),
+  /**
+   * CLUSTERS: where each cluster belongs on screen — centre x, centre y and scale (the
+   * shape's half-height), in viewport px — and the same for the merged mass they separate
+   * from. Written every frame by the Capabilities section from its measured layout.
+   */
+  clusterBox: new Float32Array(MAX_CLUSTERS * 3),
+  clusterHome: new Float32Array(3),
+  /** CLUSTERS: 0..1 separation of each cluster, written with the column reveals. */
+  clusterSpread: new Float32Array(MAX_CLUSTERS),
   /** Read by the ?debug=1 overlay only: what the particle field is currently rendering. */
   debug: { formation: "", dpr: 1, particles: 0 },
 };

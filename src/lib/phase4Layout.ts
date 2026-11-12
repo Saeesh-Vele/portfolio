@@ -5,26 +5,11 @@ import type { Vec3 } from "@/lib/sections";
  * keyframes. Each sits further down -z than the last, beyond the WORK graph.
  */
 
-/** CLUSTERS: the point the four clusters separate from, and the camera's distance from it. */
+/**
+ * CLUSTERS: the point the camera looks at, and its distance from it. The clusters themselves
+ * are placed at that distance in front of the camera, from the DOM (src/lib/clusterLayout.ts).
+ */
 export const CLUSTERS_VIEW = { center: [0, 0.6, -172] as Vec3, distance: 14, fov: 40 } as const;
-
-/** Cluster centres relative to CLUSTERS_VIEW.center: a row on wide screens, 2 × 2 on portrait. */
-export function clusterOffsets(mobile: boolean): Vec3[] {
-  return mobile
-    ? [
-        [-1.15, 2.2, 0.4],
-        [1.15, 2.4, -0.5],
-        [-1.15, -0.5, -0.4],
-        [1.15, -0.3, 0.5],
-      ]
-    : [
-        // Raised into the band between the heading and the columns, one above each column.
-        [-5.7, 2.1, 0.5],
-        [-1.9, 2.4, -0.6],
-        [1.9, 2.0, 0.6],
-        [5.7, 2.3, -0.4],
-      ];
-}
 
 /** PODIUM: centre of the podium's base. Steps are `step` wide and deep. */
 export const PODIUM_VIEW = {

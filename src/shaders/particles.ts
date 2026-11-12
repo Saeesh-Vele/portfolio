@@ -6,6 +6,7 @@ import {
   MAX_STATIONS,
   MAX_STATS,
 } from "@/lib/constants";
+import { CLUSTER_PITCH } from "@/lib/clusterLayout";
 import { STATION } from "@/lib/pipelinePath";
 import { curlNoiseGLSL } from "@/shaders/noise";
 
@@ -47,7 +48,10 @@ uniform float uStation[${MAX_STATIONS}];
 uniform float uFocus[${MAX_PROJECTS}];
 uniform vec3 uNode[${MAX_NODES}];
 uniform float uClusterFocus[${MAX_CLUSTERS}];
-uniform float uSpread;
+uniform float uSpread[${MAX_CLUSTERS}];
+uniform vec4 uClusterBox[${MAX_CLUSTERS}];
+uniform vec4 uClusterHome;
+uniform mat3 uClusterBasis;
 uniform float uLift;
 
 attribute vec3 aFrom;
@@ -103,14 +107,28 @@ vec3 place(vec3 base, vec4 aux, out vec3 fx) {
   }
 
   if (kind > ${AUX_KIND.cluster - 0.5}) {
-    // CLUSTERS: aux.xyz is the offset back to the shared centre; uSpread separates them.
-    float own = uClusterFocus[int(kind - ${AUX_KIND.cluster - 0.5})];
+    // CLUSTERS: base is local to the cluster's shape. It turns slowly about its vertical
+    // axis, tilts toward the viewer, and is placed in its box in front of the camera
+    // (xyz = world centre, w = scale); uSpread slides it there out of the merged mass.
+    int cluster = int(kind - ${AUX_KIND.cluster - 0.5});
+    float own = uClusterFocus[cluster];
     float any = 0.0;
     for (int i = 0; i < ${MAX_CLUSTERS}; i++) any = max(any, uClusterFocus[i]);
     fx.x = mix(1.0, mix(0.4, 1.0, own), any);
-    fx.y = own * 0.45;
+    // The shapes are dense, so the lift is small: more would clip the nodes to white.
+    fx.y = own * 0.22;
     fx.z = own * step(0.86, fract(dot(base, vec3(12.9898, 78.233, 37.719))));
-    return base + aux.xyz * (1.0 - uSpread);
+    float yaw = 0.5 + 0.32 * sin(uTime * 0.17 + float(cluster) * 1.9);
+    float cy = cos(yaw);
+    float sy = sin(yaw);
+    vec3 turned = vec3(base.x * cy + base.z * sy, base.y, base.z * cy - base.x * sy);
+    vec3 shape = vec3(
+      turned.x,
+      turned.y * ${Math.cos(CLUSTER_PITCH).toFixed(5)} - turned.z * ${Math.sin(CLUSTER_PITCH).toFixed(5)},
+      turned.y * ${Math.sin(CLUSTER_PITCH).toFixed(5)} + turned.z * ${Math.cos(CLUSTER_PITCH).toFixed(5)}
+    );
+    vec4 box = mix(uClusterHome, uClusterBox[cluster], uSpread[cluster]);
+    return box.xyz + uClusterBasis * shape * box.w;
   }
 
   if (kind < ${AUX_KIND.flow - 0.5}) {
@@ -211,6 +229,13 @@ void main() {
   vec3 radial = toPoint - uRayDir * dot(toPoint, uRayDir);
   float dist = length(radial);
   float push = (1.0 - smoothstep(0.0, uPointerRadius, dist)) * uPointer;
+  // Cluster shapes sit close to text, so the pointer only ruffles them.
+  float clustered = mix(
+    step(${AUX_KIND.cluster - 0.5}, aFromAux.w) * step(aFromAux.w, ${AUX_KIND.podium - 0.5}),
+    step(${AUX_KIND.cluster - 0.5}, aToAux.w) * step(aToAux.w, ${AUX_KIND.podium - 0.5}),
+    p
+  );
+  push *= 1.0 - 0.7 * clustered;
   pos += (radial / max(dist, 0.0001)) * push * 0.55 + flow * push * 0.08;
 
   vec4 mv = modelViewMatrix * vec4(pos, 1.0);

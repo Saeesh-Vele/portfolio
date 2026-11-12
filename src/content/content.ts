@@ -127,6 +127,11 @@ export const site = {
   resumePath: "/Saeesh_Vele_Resume.pdf",
   // TODO(saeesh): OG image not designed yet — add /public/og.png and wire it in layout.tsx.
   ogImage: undefined as string | undefined,
+  /** Used by JSON-LD (alumniOf) and the generated share image. */
+  college: "Saraswati College of Engineering",
+  city: "Mumbai",
+  countryCode: "IN",
+  ogAlt: "Saeesh Vele — Data & AI Engineer. I turn raw data into products people use.",
 } as const;
 
 const WHATSAPP_MESSAGE = "Hi Saeesh, I came across your portfolio and wanted to connect.";
@@ -423,8 +428,7 @@ export const projects: Project[] = [
     tags: ["data", "ai", "web"],
     status: "shipped",
     featured: true,
-    // REVIEW (saeesh): the README names the hackathon and problem statement but not the year.
-    label: "Smart India Hackathon · Problem statement 26060",
+    label: "Smart India Hackathon 2026 · Problem statement 26060",
   },
   {
     slug: "predictx",
@@ -633,16 +637,41 @@ export const capabilities = {
     },
     {
       title: "Cloud & data stores",
-      // TODO(saeesh): no one-line description was given for this column.
-      line: undefined,
+      line: "Store it, deploy it, keep it running.",
       items: ["MongoDB", "MySQL", "Neo4j", "Supabase", "Firebase", "Google Cloud", "Vercel", "Render"],
     },
   ] as { title: string; line?: string; items: string[] }[],
+  /** Mobile step readout: "02 / 04". */
+  stepSeparator: "/",
   also: "Also: Java, Git, Postman, Jupyter, Excel, Agile, DSA, OOP, System Design",
   /** Evidence readout: "USED IN → RogRakshak, ShikshaSetu". */
   evidenceLabel: "Used in",
   evidenceGlyph: "→",
 } as const;
+
+/**
+ * Evidence for skills that are not a literal stack entry. Supplied by Saeesh; only what is
+ * true is mapped. A skill listed here shows the union of:
+ *   - `sources`: project slugs / role slugs named directly, and
+ *   - every project (and role, unless `projectsOnly`) whose stack includes one of `stackAny`.
+ * Skills in neither a stack nor this map (Node.js, Express, Google Cloud, ...) show nothing.
+ */
+export interface SkillAlias {
+  sources?: string[];
+  stackAny?: string[];
+  projectsOnly?: boolean;
+}
+
+const LLM_STACK = ["Gemini", "DeepSeek", "Groq", "OpenRouter", "LangGraph"];
+
+export const skillEvidenceAliases: Record<string, SkillAlias> = {
+  EDA: { sources: ["labmentix"] },
+  "LLM integration": { stackAny: LLM_STACK },
+  "Prompt engineering": { stackAny: LLM_STACK },
+  Vercel: { sources: ["rograkshak", "shikshasetu"] },
+  Render: { sources: ["rograkshak"] },
+  JavaScript: { stackAny: ["React", "Next.js"], projectsOnly: true },
+};
 
 export const achievements: Achievement[] = [
   {
@@ -724,7 +753,6 @@ export const TODOS: string[] = [
   "NEXT_PUBLIC_SITE_URL: set to the production domain when deployed.",
   "BH.DSA: repo and live URLs (none known).",
   "PredictX, NeuroPhysio AI, SatQuery AI: live URLs, if any exist.",
-  "AURORA: confirm the Smart India Hackathon year for its label, and review the case-study text (written from the repo README).",
-  "Capabilities: one-line description for the 'Cloud & data stores' column.",
+  "AURORA: review the case-study text (written from the repo README).",
   "moreWork tags (data / ai / web) were assigned for the All-work filters: review them.",
 ];
