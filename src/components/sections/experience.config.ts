@@ -3,10 +3,10 @@ import { pathFrame, pipelinePath, STATION, stationU } from "@/lib/pipelinePath";
 import type { CameraKeyframe, SectionDef, Vec3, Viewport } from "@/lib/sections";
 
 /**
- * Viewport heights the Experience stage stays pinned for: 5 stations × 0.8 on desktop,
- * 5 × 0.6 on mobile.
+ * Viewport heights the Experience stage stays pinned for: the title card, then 5 stations ×
+ * ~0.76 on desktop, × ~0.57 on mobile.
  */
-export const EXPERIENCE_CHAPTER = { length: 4, mobileLength: 3 } as const;
+export const EXPERIENCE_CHAPTER = { length: 4.4, mobileLength: 3.3 } as const;
 
 export const STATION_COUNT = experienceChronological.length;
 
@@ -14,7 +14,9 @@ export const STATION_COUNT = experienceChronological.length;
  * Station timing, in pin progress q (0 = stage pins, 1 = pin ends). The camera arrives at
  * station k at `arrive`, creeps forward until `leave` (time to read the panel), then travels.
  */
-const FIRST_ARRIVAL = 0.08;
+const FIRST_ARRIVAL = 0.14;
+/** The title card holds while the stage pins, then fades before the first panel shows. */
+const TITLE_FADE = [0.06, 0.1] as const;
 const STATION_STEP = (0.92 - FIRST_ARRIVAL) / STATION_COUNT + 0.016;
 const STATION_HOLD = STATION_STEP * 0.54;
 
@@ -36,7 +38,7 @@ const toAt = (q: number, viewport: Viewport) => {
 
 /** Which station's panel is showing at pin progress q (-1 before the first). */
 export function activeStation(q: number): number {
-  if (q < FIRST_ARRIVAL * 0.4) return -1;
+  if (q < FIRST_ARRIVAL * 0.75) return -1;
   let index = 0;
   for (let k = 0; k < STATION_COUNT - 1; k++) {
     // Hand over halfway through the travel to the next station.
@@ -49,6 +51,9 @@ const smoothstep = (a: number, b: number, v: number) => {
   const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
   return t * t * (3 - 2 * t);
 };
+
+/** Opacity of the title card ("Five internships, one pipeline.") at pin progress q. */
+export const titleCardOpacity = (q: number) => 1 - smoothstep(TITLE_FADE[0], TITLE_FADE[1], q);
 
 /** 0..1 assembly of each station ring: forms on approach and stays formed once passed. */
 export function stationLevels(q: number, out: Float32Array) {

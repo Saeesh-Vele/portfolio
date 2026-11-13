@@ -8,6 +8,7 @@ import {
 } from "@/lib/constants";
 import { CLUSTER_PITCH } from "@/lib/clusterLayout";
 import { STATION } from "@/lib/pipelinePath";
+import { SURFACE_WAVE } from "@/components/sections/hero.config";
 import { curlNoiseGLSL } from "@/shaders/noise";
 
 /**
@@ -24,6 +25,8 @@ import { curlNoiseGLSL } from "@/shaders/noise";
  *   - STATS columns rain in from above and stack, layer by layer, as uRise[column] runs 0 → 1
  *   - PIPELINE flow particles travel along the path texture (curve parameter + uTime)
  *   - PIPELINE station particles loop in the flow until uStation[i] assembles them into a ring
+ *   - SURFACE burst particles wait inside the hero's bars and launch from their tops as the
+ *     exit wave (uBurst) reaches their row
  */
 export const particleVertex = /* glsl */ `
 uniform float uTime;
@@ -54,6 +57,9 @@ uniform vec4 uClusterBox[${MAX_CLUSTERS}];
 uniform vec4 uClusterHome;
 uniform mat3 uClusterBasis;
 uniform float uLift;
+uniform float uBurst;
+uniform mat4 uSurface;
+uniform vec3 uSurfaceSize;
 
 attribute vec3 aFrom;
 attribute vec3 aTo;
@@ -89,6 +95,24 @@ vec3 place(vec3 base, vec4 aux, out vec3 fx) {
   fx = vec3(1.0, 0.0, 0.0);
   float kind = aux.w;
   if (kind < 0.5) return base;
+
+  if (kind > ${AUX_KIND.surfaceBurst - 0.5}) {
+    // SURFACE burst: hidden in its bar until the exit wave reaches its row (aux.y, front to
+    // back, the same wave the bars sink on), then thrown up out of the bar's top: fast out,
+    // slow settle. Local grid units, through the surface's rest matrix.
+    float launch = aux.y * ${SURFACE_WAVE.stagger.toFixed(3)};
+    float t = clamp((uBurst - launch) / ${(SURFACE_WAVE.duration * 1.6).toFixed(3)}, 0.0, 1.0);
+    float e = 1.0 - pow(1.0 - t, 3.0);
+    vec3 top = vec3(
+      aux.x * uSurfaceSize.x,
+      uSurfaceSize.z * (0.45 + 0.9 * fract(aux.z * 7.31)),
+      (0.5 - aux.y) * uSurfaceSize.y
+    );
+    fx.x = smoothstep(0.0, 0.06, t);
+    fx.y = 1.4 * (1.0 - e);
+    fx.z = step(0.8, aux.z) * (1.0 - 0.6 * e);
+    return (uSurface * vec4(top + base * e, 1.0)).xyz;
+  }
 
   if (kind > ${AUX_KIND.horizon - 0.5}) {
     // HORIZON: a slow swell crossing the terrain. The calmest motion on the site.

@@ -35,7 +35,16 @@ No script or config may depend on the folder path. Package name: `saeesh-portfol
 - Layout: 12-column grid, generous negative space, hairline rules, corner HUD readouts. It
   should feel like a precision instrument, not a game.
 - Motion: easing `cubic-bezier(0.16,1,0.3,1)` / `expo.out`; text reveals line-by-line with
-  masks; nothing bounces; nothing loops distractingly except the particle field's slow drift.
+  masks; nothing bounces; nothing loops distractingly. The only loops: the particle field's
+  slow drift, the live-telemetry background, the hero surface's data drift and the hero's
+  typed role (requested in Phase 6).
+- Identity language (Phase 6): every chapter opens with a muted mono SQL query line
+  (`QueryLine`, copy in `queries` in `content.ts`), typed in once at ~20ms/char when first
+  seen, behind an accent block caret that disappears when done. Its full text is laid out
+  invisibly from the start, so typing never shifts layouts that measure themselves.
+  Experience and Work open on a title card (`TitleCard`: query + Geist-heavy h2) that fades
+  before the first panel. The hero's line is `> SELECT role FROM saeesh;` with a cycling
+  typed result (`TypedRoles`).
 
 Tokens live in `src/app/globals.css` (`@theme`). Utility classes: `.label` (mono readout),
 `.display` (display heading), `.reveal` / `.reveal-line` (masked line reveal), `.hairline`.
@@ -108,7 +117,9 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
    the shape in its on-screen box `uClusterBox[i]`, sliding it out of the merged mass
    `uClusterHome` as `uSpread[i]` runs 0→1, and brightens it with `uClusterFocus[i]` · `40` PODIUM
    step / `41` PODIUM numeral, which rises out of its step with `uLift` · `50` HORIZON terrain
-   point, with a very slow swell. Both ends of a morph are placed, then mixed by the morph progress. A new
+   point, with a very slow swell · `60` SURFACE burst: hidden inside the hero's bars, launched
+   from its bar's top (through `uSurface`, the surface's rest matrix) as the exit wave
+   `uBurst` reaches its row. Both ends of a morph are placed, then mixed by the morph progress. A new
    behaviour = a new `aux.w` range + a branch in `place()`.
 7. Time-driven values that must stay in sync with the DOM are written to `frame` by the DOM
    side and copied to uniforms in `ParticleField` (`frame.statsRise` is written by the same tween
@@ -117,7 +128,26 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
 8. Readability rule: 3D intensity peaks BETWEEN sections and calms down while text is being
    read. Text panels always stay legible (contrast ≥ 4.5:1); particles behind text can dim
    locally.
-9. View shift (portrait framing): `frame.viewShift[<section>]` is a vertical image shift in
+9. HERO DATA SURFACE (Phase 6, `DataSurface.tsx`): a real lit object, not particles. One
+   InstancedMesh of RoundedBoxGeometry bars (22 × 14 desktop, 14 × 10 phones, 12 × 8 on the
+   lowest tier) whose heights come from a per-instance `aBar` attribute (height, glow, sink:
+   the top half of the unit box moves, so bevels never stretch); MeshPhysicalMaterial
+   graphite + clearcoat, patched for the glacier top cap on the tallest ~10%; a dark plate
+   with a hairline accent edge and canvas-texture axis ticks; key + glacier rim lights and a
+   drei `<Environment>` built from `<Lightformer>`s (no HDR downloads); ContactShadows
+   rendered once. It is placed in screen space: the Hero measures its slot every frame into
+   `frame.heroSlot`, and the surface maps it to the z = 0 plane through the resting hero
+   camera. Heights: two octaves of simplex + a travelling wave; pointer/touch → damped ripple
+   + tilt. Scroll exit: `heroExit(at)` in `hero.config.ts` drives both the front-to-back
+   sink (`barSink`) and the particle burst (`uBurst`), then the plate fades and shrinks.
+   Particles use `depthTest: true` so dust behind the object stays behind it.
+10. LIVE TELEMETRY (`Telemetry.tsx`): the ambient background — 6 faint time-series traces
+   (3–8% opacity) scrolling right to left at different speeds / depths (scroll parallax),
+   faint gridlines and an occasional glacier ping. Drawn in the existing scene, first, on
+   the far plane, entirely in the vertex shader (each vertex computes its own sample from a
+   time offset), so it costs a few uniforms a frame. DOM scrims dim it under text; it also
+   follows the field's dimming (`frame.fieldDim`). Static with reduced motion.
+11. View shift (portrait framing): `frame.viewShift[<section>]` is a vertical image shift in
    CSS px, written every frame by the DOM; `CameraRig` applies the sum with
    `camera.setViewOffset`. Mobile keyframes aim at the subject dead centre and the shift
    moves it where the layout wants it: centred above a bottom sheet (Experience, Work —
@@ -135,6 +165,10 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
 | Scroll → camera/formation maths | `src/lib/timeline.ts` |
 | Formations registry | `src/components/canvas/formations/index.ts` |
 | Particle shader | `src/shaders/particles.ts` (curl noise in `src/shaders/noise.ts`) |
+| Hero DATA SURFACE (instanced bars, lights, ripple, exit) | `src/components/canvas/DataSurface.tsx` (simplex in `simplex.ts`) |
+| Hero camera, surface grid sizes (three-free) | `src/lib/heroLayout.ts` |
+| Live-telemetry background | `src/components/canvas/Telemetry.tsx` |
+| SQL query lines, title cards, typed role | `src/components/ui/QueryLine.tsx`, `TitleCard.tsx`, `TypedRoles.tsx` |
 | Particle field | `src/components/canvas/ParticleField.tsx` |
 | Camera rig | `src/components/canvas/CameraRig.tsx` |
 | Canvas mount (ssr:false) | `src/components/canvas/CanvasRoot.tsx` → `Scene.tsx` |
@@ -155,7 +189,7 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
 | Adaptive quality governor + bloom gate | `src/components/canvas/Scene.tsx` (cap in `useSite.tierCap`) |
 | Fonts | `src/app/fonts.ts`; re-subset with `scripts/subset-fonts.sh` after adding copy with new non-Latin characters |
 | 404 (particles in pure NOISE: no sections → no holds) | `src/app/not-found.tsx` |
-| Share card (OG + Twitter, built at build time with `next/og`) | `src/app/opengraph-image.tsx` (`twitter-image.tsx` re-exports it; Instrument Serif TTF in `src/app/og/`) |
+| Share card (OG + Twitter, built at build time with `next/og`: name in the hero style + an isometric SVG render of the bar grid) | `src/app/opengraph-image.tsx` (`twitter-image.tsx` re-exports it; Instrument Serif TTF in `src/app/og/`) |
 | SEO: metadata, canonical, JSON-LD Person, Vercel Analytics / Speed Insights (only when `VERCEL=1`) | `src/app/layout.tsx`; origin from `NEXT_PUBLIC_SITE_URL` via `src/lib/siteUrl.ts` |
 | sitemap / robots / web manifest / apple-touch-icon | `src/app/sitemap.ts`, `robots.ts`, `manifest.ts`, `apple-icon.png` (PNG icons in `public/icons/`) |
 
@@ -231,8 +265,13 @@ Per-frame values (smoothed progress, energy, pointer) live in the mutable `frame
 - PODIUM and HORIZON belong to normal-flow sections (not pinned): their scroll-driven
   uniforms run on the way in (`at` < 0), from `numeralLift` in the section config. HORIZON is the calmest state: `ParticleField` holds scroll energy and drift down
   while it is active.
-- HERO (Phase 1, built): particles assemble into "SAEESH VELE"; on scroll the camera pushes
-  THROUGH the name.
+- HERO (Phase 6, built — replaces the Phase 1 particle NAME, which is retired and deleted):
+  DOM copy in cols 1–6 (query line + typed role, "Saeesh" in Geist heavy and "Vele" in
+  Instrument Serif italic accent as the real h1, tagline, CTAs, socials row) and the DATA
+  SURFACE in cols 7–12 (below the copy on phones, ~92% width). The field holds SURFACE
+  (ambient depth + the burst particles, `dim` 0.7). On scroll the surface sinks front to
+  back, its particles burst up and join the field, the camera pushes on into NOISE, then
+  STATS as before. Desktop hover shows a mono readout over the hovered bar.
 - NUMBERS: particles rain down and stack into 3D bar columns; camera orbits ~30° while counters
   animate (5 internships · 1.5+ yrs · 1,000+ users · 3rd of 1,000+ teams · 9.1 CGPA · ~8
   hrs/week saved).
@@ -277,8 +316,9 @@ Per-frame values (smoothed progress, energy, pointer) live in the mutable `frame
 - Keyboard: 2px glacier `:focus-visible` ring; skip link first; links that open a new tab carry
   visually hidden `a11y.newTab` text; Escape closes the mobile menu and the expanded case-study
   sheet; focusing a hidden WORK case study travels the chapter to it. Hit targets ≥ 24px.
-- Real DOM text for everything (SEO + screen readers). The particle name is decorative
-  (`aria-hidden`); there is a real `h1`.
+- Real DOM text for everything (SEO + screen readers). The hero name is the real, visible
+  `h1`; query lines and the typed role are decorative (`aria-hidden`), the roles are also
+  given as visually hidden text.
 - Lighthouse targets: Performance ≥85 on mobile, Accessibility ≥95.
 
 DOM that follows 3D points (the "NOW" tag, graph tech labels, project-node hit targets): the

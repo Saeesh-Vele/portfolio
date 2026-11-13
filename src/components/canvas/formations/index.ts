@@ -2,11 +2,11 @@ import type { Viewport } from "@/lib/sections";
 import { clusters } from "./clusters";
 import { graph } from "./graph";
 import { horizon } from "./horizon";
-import { name } from "./name";
 import { noise } from "./noise";
 import { pipeline } from "./pipeline";
 import { podium } from "./podium";
 import { stats } from "./stats";
+import { surface } from "./surface";
 
 /**
  * Optional per-particle data for formations whose particles do more than sit at a target.
@@ -24,6 +24,9 @@ import { stats } from "./stats";
  *   40       PODIUM step (static)
  *   41       PODIUM numeral: x = how far it rises, y = random
  *   50       HORIZON terrain point (swells slowly in the shader)
+ *   60       SURFACE burst: x = across the bar grid -0.5..0.5, y = front-to-back 0..1,
+ *            z = random. The position is its burst offset in the grid's local units; the
+ *            shader launches it from its bar's top (uSurface) as uBurst sweeps past its row
  */
 export interface FormationData {
   positions: Float32Array;
@@ -51,7 +54,7 @@ export function getFormation(id: string): Formation {
 
 // Adding a section = write a formation + register it here.
 registerFormation("noise", noise);
-registerFormation("name", name);
+registerFormation("surface", surface);
 registerFormation("stats", stats);
 registerFormation("pipeline", pipeline);
 registerFormation("graph", graph);

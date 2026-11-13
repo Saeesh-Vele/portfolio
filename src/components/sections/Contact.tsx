@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Clock } from "@/components/ui/Clock";
-import { a11y, contact, contactSection as copy, hero } from "@/content/content";
+import { QueryLine } from "@/components/ui/QueryLine";
+import { a11y, contact, contactSection as copy, hero, queries } from "@/content/content";
 import { useSeen } from "@/lib/hooks";
 import { useLineReveal } from "@/lib/lineReveal";
 import { contactSection } from "./contact.config";
@@ -44,9 +45,11 @@ export function Contact() {
       data-section={contactSection.id}
       className="relative flex min-h-svh flex-col justify-center px-(--gutter) pb-16 pt-[calc(var(--nav-h)+3rem)]"
     >
-      {/* The section label is the global SectionHud (top left); the local clock stays. */}
-      <div className="flex items-baseline justify-end gap-6">
-        <p className="label">
+      {/* The section label is the global SectionHud (top left); the query line, then the
+          local clock on the right. */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+        <QueryLine text={queries.contact} />
+        <p className="label ml-auto">
           <Clock
             timeZone={hero.hud.clockTimeZone}
             zoneLabel={hero.hud.clockZone}

@@ -3,7 +3,8 @@
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollChapter } from "@/components/ui/ScrollChapter";
-import { about, stats, type Stat } from "@/content/content";
+import { QueryLine } from "@/components/ui/QueryLine";
+import { about, queries, stats, type Stat } from "@/content/content";
 import { useSeen } from "@/lib/hooks";
 import { useLineReveal } from "@/lib/lineReveal";
 import { frame, useSite } from "@/store/site";
@@ -79,10 +80,19 @@ function AboutStage({ pinned }: { pinned: boolean }) {
     >
       <h2 className="sr-only">{about.heading}</h2>
 
-      <div className="grid grid-cols-12 gap-x-6">
+      <div className="relative grid grid-cols-12 gap-x-6">
+        {/* Local dimming behind the bio: telemetry and dust recede under the text. */}
+        <div
+          aria-hidden
+          className="scrim pointer-events-none absolute -inset-y-16 left-[8%] right-[20%] hidden md:block"
+        />
+        <QueryLine
+          text={queries.about}
+          className="relative col-start-1 col-end-13 mb-3 md:col-start-3 md:col-end-10 md:mb-4"
+        />
         <p
           data-split
-          className="col-start-1 col-end-13 text-[0.9375rem] leading-[1.42] tracking-[-0.01em] text-text md:col-start-3 md:col-end-10 md:text-[clamp(1.25rem,min(2vw,3.4vh),1.875rem)] md:leading-[1.28] md:tracking-[-0.02em]"
+          className="relative col-start-1 col-end-13 text-[0.9375rem] leading-[1.42] tracking-[-0.01em] text-text md:col-start-3 md:col-end-10 md:text-[clamp(1.25rem,min(2vw,3.4vh),1.875rem)] md:leading-[1.28] md:tracking-[-0.02em]"
         >
           {about.bio.map((part) =>
             part.emphasis ? (
@@ -95,7 +105,7 @@ function AboutStage({ pinned }: { pinned: boolean }) {
           )}
         </p>
 
-        <div className="col-start-1 col-end-13 mt-3 md:col-start-10 md:col-end-13 md:mt-1">
+        <div className="relative col-start-1 col-end-13 mt-3 md:col-start-10 md:col-end-13 md:mt-1">
           <p className="label hidden md:block">{about.educationLabel}</p>
           <p data-split className="label text-text md:mt-2 md:leading-[1.6]">
             {about.educationLine.join(" · ")}

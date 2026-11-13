@@ -133,6 +133,25 @@ export const frame = {
   viewShift: { experience: 0, work: 0, recognition: 0 } as Record<string, number>,
   /** The shift the camera actually applied this frame (px), for screen-space placement. */
   appliedShift: 0,
+  /**
+   * HERO: the DATA SURFACE's slot in the hero layout — centre x, centre y, width, height in
+   * viewport px — measured every frame by the Hero section (0 width = not on this page).
+   */
+  heroSlot: new Float32Array(4),
+  /**
+   * HERO: local → world matrix of the surface's cell grid at rest (no bob, tilt or shrink),
+   * written by DataSurface; the burst particles launch from it. Column-major, as three.js.
+   */
+  surfaceMatrix: new Float32Array(16),
+  /** HERO: grid width and depth (cell centre to cell centre) and mean bar height, local units. */
+  surfaceSize: new Float32Array(3),
+  /**
+   * HERO: the cell under the pointer (desktop tooltip): screen x / y in px, opacity, column
+   * (of `cols`), row, value 0..1. Written by DataSurface, read by the Hero's ticker.
+   */
+  surfaceHover: { x: 0, y: 0, opacity: 0, col: -1, cols: 1, row: -1, value: 0 },
+  /** 0..1 particle dimming currently applied (the formation's `dim`); the telemetry follows it. */
+  fieldDim: 0,
   /** Read by the ?debug=1 overlay only: what the particle field is currently rendering. */
   debug: {
     formation: "",

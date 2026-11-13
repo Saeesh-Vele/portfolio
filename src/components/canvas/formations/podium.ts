@@ -3,7 +3,7 @@ import { AUX_KIND } from "@/lib/constants";
 import { mulberry32 } from "@/lib/device";
 import { PODIUM_VIEW } from "@/lib/phase4Layout";
 import type { Formation } from "./index";
-import { sampleText } from "./name";
+import { sampleText } from "./sampleText";
 
 const STEP_SHARE = 0.46;
 const NUMERAL_SHARE = 0.26;

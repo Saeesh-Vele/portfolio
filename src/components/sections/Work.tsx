@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import gsap from "gsap";
 import { ScrollChapter } from "@/components/ui/ScrollChapter";
-import { a11y, featuredProjects, work, type Project } from "@/content/content";
+import { TitleCard } from "@/components/ui/TitleCard";
+import { a11y, featuredProjects, queries, work, type Project } from "@/content/content";
 import { useLineReveal } from "@/lib/lineReveal";
 import { MOBILE_BREAKPOINT } from "@/lib/constants";
 import { lockScroll, scrollToSpan } from "@/lib/scroll";
@@ -14,6 +15,7 @@ import {
   activeProject,
   PROJECT_COUNT,
   projectAt,
+  titleCardOpacity,
   WORK_CHAPTER,
   workPanelSide,
   workSection,
@@ -184,7 +186,7 @@ function CasePanel({
 function WorkList() {
   return (
     <div className="px-(--gutter) pb-20 pt-[calc(var(--nav-h)+2.75rem)]">
-      <h2 className="sr-only">{work.heading}</h2>
+      <TitleCard query={queries.work} title={work.title} overlay={false} />
       <ol className="max-w-2xl border-l border-hairline bg-bg/90">
         {featuredProjects.map((project, index) => (
           <li key={project.slug} className="py-8 pl-6 pr-4 md:pl-10">
@@ -210,9 +212,18 @@ export function Work() {
   const followers = useRef<(HTMLElement | null)[]>([]);
   const hud = useRef<HTMLParagraphElement>(null);
   const sheetBody = useRef<HTMLOListElement>(null);
+  const title = useRef<HTMLDivElement>(null);
+  /** Title card opacity, read by the tech labels so they never sit on top of it. */
+  const titleOpacity = useRef(1);
   const showing = useRef(false);
 
   const onProgress = useCallback((progress: number) => {
+    const opacity = titleCardOpacity(progress);
+    titleOpacity.current = opacity;
+    if (title.current) {
+      title.current.style.opacity = opacity.toFixed(3);
+      title.current.style.visibility = opacity < 0.01 ? "hidden" : "visible";
+    }
     const project = activeProject(progress);
     showing.current = project >= 0;
     setActive(project);
@@ -240,6 +251,8 @@ export function Work() {
           : Infinity;
       // ...and below the HUD row (case readout, progress), never on top of it.
       const ceiling = (hud.current?.getBoundingClientRect().bottom ?? 0) + 12;
+      // While the title card shows, labels that would land on it fade out with it in.
+      const card = titleOpacity.current > 0.01 ? title.current?.getBoundingClientRect() : undefined;
       followers.current.forEach((element, i) => {
         if (!element) return;
         const o = i * 4;
@@ -256,6 +269,9 @@ export function Work() {
           const left = Math.min(Math.max(x, margin + half), width - margin - half);
           const drop = frame.nodes[o + 3] * graph.techRadius + 6;
           const top = Math.max(y + drop, ceiling);
+          if (card && top < card.bottom + 8 && left - half < card.right) {
+            element.style.opacity = (opacity * (1 - titleOpacity.current)).toFixed(3);
+          }
           element.style.transform = `translate3d(${left.toFixed(1)}px, ${top.toFixed(1)}px, 0) translateX(-50%)`;
           return;
         }
@@ -316,7 +332,8 @@ export function Work() {
       reducedFallback={<WorkList />}
     >
       <div className="relative h-full">
-        <h2 className="sr-only">{work.heading}</h2>
+        {/* Title card over the graph overview, before the first case study. */}
+        <TitleCard ref={title} query={queries.work} title={work.title} overlay />
 
         {/* Project nodes: hover shows the title, click travels to that case study (desktop). */}
         {graph.projects.map((project, index) => (

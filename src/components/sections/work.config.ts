@@ -57,6 +57,12 @@ const smoothstep = (a: number, b: number, v: number) => {
   return t * t * (3 - 2 * t);
 };
 
+/** The title card ("Shipped, not just built.") holds over the overview, then fades. */
+const TITLE_FADE = [0.06, 0.1] as const;
+
+/** Opacity of the title card at pin progress q. */
+export const titleCardOpacity = (q: number) => 1 - smoothstep(TITLE_FADE[0], TITLE_FADE[1], q);
+
 /** 0..1 focus of each project node: up on approach, down as the camera leaves. */
 export function projectFocus(q: number, out: Float32Array) {
   out.fill(0);

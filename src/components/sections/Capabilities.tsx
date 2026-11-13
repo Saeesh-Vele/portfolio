@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollChapter } from "@/components/ui/ScrollChapter";
-import { capabilities } from "@/content/content";
+import { QueryLine } from "@/components/ui/QueryLine";
+import { capabilities, queries } from "@/content/content";
 import { layoutClusters } from "@/lib/clusterLayout";
 import { MAX_CLUSTERS, MOBILE_BREAKPOINT } from "@/lib/constants";
 import { useSeen } from "@/lib/hooks";
@@ -149,6 +150,7 @@ export function Capabilities() {
         reducedMotion ? "min-h-svh" : "h-full"
       }`}
     >
+      <QueryLine text={queries.skills} className="mb-3 md:mb-4" />
       <h2 data-split className="display text-[clamp(2rem,4.4vw,3.5rem)]">
         {capabilities.heading}
       </h2>

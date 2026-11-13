@@ -116,7 +116,6 @@ export interface NavLink {
 
 export const site = {
   name: "Saeesh Vele",
-  particleName: "SAEESH VELE",
   monogram: "SV",
   role: "Data & AI Engineer",
   title: "Saeesh Vele — Data & AI Engineer",
@@ -154,8 +153,6 @@ export const contact = {
 
 export const a11y = {
   skipToContent: "Skip to content",
-  /** The real, visually hidden h1. The particle name is decorative. */
-  heroHeading: "Saeesh Vele — Data & AI Engineer",
   /** Appended (visually hidden) to every link that opens in a new tab. */
   newTab: "(opens in a new tab)",
   /** Accessible name of the expanded case-study sheet on phones. */
@@ -189,21 +186,28 @@ export const loader = {
 } as const;
 
 export const hero = {
-  eyebrow: "DATA & AI ENGINEER",
-  /** Rendered line by line; `emphasis` words are set in Instrument Serif italic. */
-  taglineLines: [
-    [{ text: "I turn raw data into" }],
-    [{ text: "products", emphasis: true }, { text: " people use." }],
-  ] as { text: string; emphasis?: boolean }[][],
+  /** The mono query line above the name; its result cycles through `roles`. */
+  query: "SELECT role FROM saeesh;",
+  roles: ["Data & AI Engineer", "AI Full-Stack Developer", "Data Analyst"],
+  /** Visually hidden, read instead of the typing: "Roles: a, b, c." */
+  rolesLabel: "Roles:",
+  /** Set in Geist heavy, then Instrument Serif italic in the accent. */
+  name: { first: "Saeesh", last: "Vele" },
   tagline: "I turn raw data into products people use.",
-  supportingLines: [
-    "Pipelines, dashboards and LLM-powered apps —",
-    "5 internships · 1,000+ users · 3rd of 1,000+ teams.",
-  ],
+  supporting:
+    "Pipelines, dashboards and LLM-powered apps — 5 internships · 1,000+ users · 3rd of 1,000+ teams.",
   cta: {
     work: { label: "View work", target: "work" },
     resume: { label: "Resume", glyph: "↓", href: site.resumePath },
   },
+  /** One small mono row. WhatsApp is a link only: the number is never shown. */
+  socials: [
+    { label: "GitHub", href: contact.githubHref, external: true },
+    { label: "LinkedIn", href: contact.linkedinHref, external: true },
+    { label: "Email", href: contact.emailHref, external: false },
+    { label: "WhatsApp", href: contact.whatsappHref, external: true },
+  ],
+  socialsLabel: "Elsewhere",
   hud: {
     topLeft: "SV / 2026",
     clockZone: "IST",
@@ -214,11 +218,39 @@ export const hero = {
     status: "STATUS: OPEN TO ROLES",
   },
   scrollCue: "SCROLL",
+  /**
+   * The DATA SURFACE's chart cues: a time axis along the front edge ("T−24H … NOW") and row
+   * indices along the side ("00 … 13"). Decorative: the surface is not real data.
+   */
+  surface: {
+    timePrefix: "T−",
+    timeSuffix: "H",
+    now: "NOW",
+    /** Hours before now labelled on the time axis, oldest first; `now` follows. */
+    hours: [24, 18, 12, 6],
+    /** Desktop hover readout: "T−07H · R05 · 0.82". */
+    rowPrefix: "R",
+    separator: " · ",
+  },
 } as const;
 
 // ---------------------------------------------------------------------------------------
 // About + numbers
 // ---------------------------------------------------------------------------------------
+
+/**
+ * The site's identity language: every chapter opens with a mono query line, typed in once as
+ * the section arrives. `prompt` is the glyph in front of each one.
+ */
+export const queries = {
+  prompt: ">",
+  about: "SELECT summary FROM saeesh;",
+  experience: "SELECT * FROM roles ORDER BY start_date;",
+  work: "SELECT * FROM projects WHERE shipped = true;",
+  skills: "SELECT skill, used_in FROM stack GROUP BY domain;",
+  recognition: "SELECT * FROM wins ORDER BY rank;",
+  contact: "INSERT INTO conversations VALUES ('you', 'saeesh');",
+} as const;
 
 export const about = {
   label: "02 / ABOUT",
@@ -345,6 +377,8 @@ export const experienceChronological: Experience[] = [...experience].reverse();
 export const experienceSection = {
   label: "03 / EXPERIENCE",
   heading: "Experience",
+  /** Title card shown before the pinned pipeline starts. */
+  title: "Five internships, one pipeline.",
   /** Readout prefix: "STATION 03 / 05". */
   stationLabel: "STATION",
   /** Tag carried by the current station. */
@@ -507,6 +541,8 @@ export const featuredProjects = projects.filter((p) => p.featured);
 export const work = {
   label: "04 / WORK",
   heading: "Work",
+  /** Title card shown over the graph overview, before the first case study. */
+  title: "Shipped, not just built.",
   /** Case-study index prefix: "P / 01". */
   indexPrefix: "P",
   status: { shipped: "Shipped", "in progress": "In progress" } satisfies Record<ProjectStatus, string>,

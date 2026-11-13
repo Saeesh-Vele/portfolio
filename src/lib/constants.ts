@@ -33,6 +33,7 @@ export const AUX_KIND = {
   podium: 40,
   podiumNumeral: 41,
   horizon: 50,
+  surfaceBurst: 60,
 } as const;
 
 /** CLUSTERS: number of capability clusters the shader can focus. */

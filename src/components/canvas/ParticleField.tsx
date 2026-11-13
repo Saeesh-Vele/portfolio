@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { experienceQ, stationLevels } from "@/components/sections/experience.config";
+import { heroExit } from "@/components/sections/hero.config";
 import { numeralLift } from "@/components/sections/recognition.config";
 import { projectFocus, workQ } from "@/components/sections/work.config";
 import { experienceChronological } from "@/content/content";
@@ -149,7 +150,9 @@ function Field({ viewport, tier }: { viewport: Viewport; tier: Tier }) {
         fragmentShader: particleFragment,
         transparent: true,
         depthWrite: false,
-        depthTest: false,
+        // Tested against the hero's DATA SURFACE (the only depth writer): dust behind the
+        // object stays behind it. Elsewhere the depth buffer is empty, so nothing changes.
+        depthTest: true,
         blending: THREE.AdditiveBlending,
         uniforms: {
           uTime: { value: 0 },
@@ -179,6 +182,9 @@ function Field({ viewport, tier }: { viewport: Viewport; tier: Tier }) {
           uClusterHome: { value: new THREE.Vector4() },
           uClusterBasis: { value: new THREE.Matrix3() },
           uLift: { value: 1 },
+          uBurst: { value: 0 },
+          uSurface: { value: new THREE.Matrix4() },
+          uSurfaceSize: { value: new THREE.Vector3(1, 1, 1) },
           uColor: { value: new THREE.Color(COLORS.text) },
           uAccent: { value: new THREE.Color(COLORS.glacier) },
         },
@@ -226,6 +232,7 @@ function Field({ viewport, tier }: { viewport: Viewport; tier: Tier }) {
       // Reduced motion: formations switch, they don't morph.
       u.uProgress.value = reducedMotion ? (morph.progress >= 0.5 ? 1 : 0) : morph.progress;
       u.uDim.value = morph.dim;
+      frame.fieldDim = morph.dim;
       frame.debug.formation =
         morph.from === morph.to || morph.progress <= 0
           ? morph.from
@@ -299,6 +306,12 @@ function Field({ viewport, tier }: { viewport: Viewport; tier: Tier }) {
     const homeScale = placeBox(frame.clusterHome[0], frame.clusterHome[1], frame.clusterHome[2]);
     (u.uClusterHome.value as THREE.Vector4).set(scratchBox.x, scratchBox.y, scratchBox.z, homeScale);
     (u.uClusterBasis.value as THREE.Matrix3).setFromMatrix4(cam.matrixWorld);
+    // --- HERO: the surface's burst particles follow its exit wave, from its rest placement
+    const heroAt = timeline ? sectionAt(timeline, "hero", frame.progress) : null;
+    u.uBurst.value = reducedMotion ? 0 : heroExit(heroAt);
+    (u.uSurface.value as THREE.Matrix4).fromArray(frame.surfaceMatrix);
+    (u.uSurfaceSize.value as THREE.Vector3).fromArray(frame.surfaceSize);
+
     const recognitionAt = timeline ? sectionAt(timeline, "recognition", frame.progress) : null;
     u.uLift.value = reducedMotion || recognitionAt === null ? 1 : numeralLift(recognitionAt);
     frame.debug.lift = u.uLift.value;

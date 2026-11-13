@@ -2,7 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
-import { a11y, certifications, featuredProjects, recognition } from "@/content/content";
+import { QueryLine } from "@/components/ui/QueryLine";
+import { a11y, certifications, featuredProjects, queries, recognition } from "@/content/content";
 import { MOBILE_BREAKPOINT } from "@/lib/constants";
 import { useSeen } from "@/lib/hooks";
 import { useLineReveal } from "@/lib/lineReveal";
@@ -78,6 +79,7 @@ export function Recognition() {
           <div aria-hidden className="scrim absolute -inset-x-20 -inset-y-16" />
           <div className="relative">
             <h2 className="sr-only">{recognition.heading}</h2>
+            <QueryLine text={queries.recognition} className="mb-4" />
             <p data-split className="display text-[clamp(2.25rem,5.6vw,4.75rem)]">
               {recognition.headline}
             </p>

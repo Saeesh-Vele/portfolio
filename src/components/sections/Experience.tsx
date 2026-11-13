@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollChapter } from "@/components/ui/ScrollChapter";
+import { TitleCard } from "@/components/ui/TitleCard";
 import {
   experienceChronological,
   experienceSection as copy,
+  queries,
   type Experience as ExperienceEntry,
 } from "@/content/content";
 import { useLineReveal } from "@/lib/lineReveal";
@@ -17,6 +19,7 @@ import {
   experienceSection,
   panelSide,
   STATION_COUNT,
+  titleCardOpacity,
 } from "./experience.config";
 
 /**
@@ -97,7 +100,7 @@ function StationPanel({
 function ExperienceList() {
   return (
     <div className="px-(--gutter) pb-24 pt-[calc(var(--nav-h)+2.75rem)]">
-      <h2 className="sr-only">{copy.heading}</h2>
+      <TitleCard query={queries.experience} title={copy.title} overlay={false} />
       <ol className="max-w-2xl border-l border-hairline bg-bg/85">
         {experienceChronological.map((entry) => (
           <li key={entry.slug} className="relative py-7 pl-6 pr-4 md:pl-10">
@@ -124,9 +127,15 @@ export function Experience() {
   const tag = useRef<HTMLParagraphElement>(null);
   const hud = useRef<HTMLParagraphElement>(null);
   const sheetBody = useRef<HTMLOListElement>(null);
+  const title = useRef<HTMLDivElement>(null);
   const showing = useRef(false);
 
   const onProgress = useCallback((progress: number) => {
+    if (title.current) {
+      const opacity = titleCardOpacity(progress);
+      title.current.style.opacity = opacity.toFixed(3);
+      title.current.style.visibility = opacity < 0.01 ? "hidden" : "visible";
+    }
     const station = activeStation(progress);
     showing.current = station >= 0;
     setActive(station);
@@ -166,7 +175,8 @@ export function Experience() {
       reducedFallback={<ExperienceList />}
     >
       <div className="relative h-full">
-        <h2 className="sr-only">{copy.heading}</h2>
+        {/* Title card: the chapter opens on it, before the pipeline's first station. */}
+        <TitleCard ref={title} query={queries.experience} title={copy.title} overlay />
 
         {/* HUD — station readout. The section label is the global SectionHud, top left. */}
         <p

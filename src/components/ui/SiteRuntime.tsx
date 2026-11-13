@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
-import { site } from "@/content/content";
+import { recognition } from "@/content/content";
 import { MOBILE_BREAKPOINT, QUALITY_SESSION_KEY } from "@/lib/constants";
 import { capablePhone, deviceTier, isTier } from "@/lib/device";
 import { useReducedMotion } from "@/lib/hooks";
@@ -33,7 +33,7 @@ export function SiteRuntime() {
     useSite.getState().setReducedMotion(reducedMotion);
   }, [reducedMotion]);
 
-  // Viewport + tier. Waits for the display font so the NAME formation samples real glyphs.
+  // Viewport + tier. Waits for the display font so the PODIUM numeral samples real glyphs.
   useEffect(() => {
     // Adaptive quality already dropped a tier earlier in this session: start there.
     try {
@@ -78,7 +78,7 @@ export function SiteRuntime() {
     };
 
     const fontReady = document.fonts
-      ? document.fonts.load(`800 100px ${fontFamily}`, site.particleName)
+      ? document.fonts.load(`800 100px ${fontFamily}`, recognition.place)
       : Promise.resolve();
     const timeout = new Promise((resolve) => setTimeout(resolve, 1500));
     Promise.race([fontReady, timeout]).then(measure, measure);

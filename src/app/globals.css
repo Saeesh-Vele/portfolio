@@ -323,6 +323,33 @@ html[data-loader="skip"] .loader {
   display: none;
 }
 
+/* ------------------------------------------------------------------ query lines
+   Accent block caret of the typed SQL lines (QueryLine, TypedRoles). */
+
+.caret {
+  display: inline-block;
+  width: 0.62em;
+  height: 1.05em;
+  margin-left: 0.12em;
+  vertical-align: -0.16em;
+  background: var(--color-glacier);
+}
+
+@keyframes caret-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.caret-blink {
+  animation: caret-blink 1.06s steps(1, end) infinite;
+}
+
 /* ------------------------------------------------------------------ status dot */
 
 @keyframes slow-pulse {
@@ -447,7 +474,8 @@ html[data-cursor="on"] :is(input, textarea, [contenteditable="true"]) {
     opacity: 1;
     transition: none;
   }
-  .pulse-dot {
+  .pulse-dot,
+  .caret-blink {
     animation: none;
   }
   .loader {

@@ -4,10 +4,12 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { COLORS, QUALITY_SESSION_KEY } from "@/lib/constants";
 import { usePageVisible } from "@/lib/hooks";
-import { HERO_CAMERA } from "@/lib/nameLayout";
+import { HERO_CAMERA } from "@/lib/heroLayout";
 import { frame, useSite } from "@/store/site";
 import { CameraRig } from "./CameraRig";
+import { DataSurface } from "./DataSurface";
 import { ParticleField } from "./ParticleField";
+import { Telemetry } from "./Telemetry";
 
 // Postprocessing is only fetched on desktop.
 const Effects = lazy(() => import("./Effects"));
@@ -144,6 +146,8 @@ export default function Scene() {
     >
       <color attach="background" args={[COLORS.bg]} />
       <CameraRig />
+      <Telemetry />
+      <DataSurface />
       <ParticleField />
       <QualityGovernor />
       {bloom ? <BloomGate /> : null}
