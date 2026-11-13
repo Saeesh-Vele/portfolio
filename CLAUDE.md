@@ -142,9 +142,11 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
    downloads). It is placed in screen space: the Hero measures the box it should fill every
    frame into `frame.heroSlot` (`SURFACE` in `Hero.tsx`). Phones: the slot below the copy.
    Side by side (the `desk:` custom variant: ≥ 1100px, or ≥ 768px in landscape;
-   `HERO_SIDE_BY_SIDE`): the band from 120px right of the name to the content edge, the
-   surface centred in it, level with the name's centre, ~85% of the name block's height
-   (role line + name), clear of the HUD row and the tagline. Stacked beyond phones (portrait
+   `HERO_SIDE_BY_SIDE`): 45% of the viewport wide (projected outline), right edge on the
+   content edge (`frame.heroAlign` = 1 right-anchors the fit), centred on the whole copy
+   block (query line → socials); it may stand beside the tagline, CTAs and socials. Hard
+   limits, met by shrinking uniformly: ≥ 100px from any copy text, ≥ 24px below the HUD
+   row, ≥ 32px above the bottom HUD row. Stacked beyond phones (portrait
    tablets, narrow windows): centred under the copy, up to 70% of the viewport wide, clear
    of the bottom HUD. The surface maps the box to the z = 0 plane through the resting hero
    camera (`heroCamera(isMobile)` in `heroLayout.ts`: beyond phones it sits closer with a
@@ -287,7 +289,7 @@ Per-frame values (smoothed progress, energy, pointer) live in the mutable `frame
   DOM copy in cols 1–6 (muted 12px query line, the typed role in Geist Mono 16px / 15px
   phones in the text colour, "Saeesh" in Geist heavy and "Vele" in Instrument Serif italic
   accent as the real h1, tagline, CTAs, socials row) and the DATA SURFACE: side by side
-  (`desk:`) a corner-on diamond centred in the band right of the name, level with it;
+  (`desk:`) a corner-on diamond ~45% of the width, on the content edge, centred on the copy;
   stacked below the copy on portrait tablets (~70% width) and phones (~86% width). The field holds SURFACE
   (ambient depth + the burst particles, `dim` 0.7). On scroll the surface sinks front to
   back, its particles burst up and join the field, the camera pushes on into NOISE, then

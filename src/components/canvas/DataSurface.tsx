@@ -523,12 +523,14 @@ function Surface({ grid, mobile, halo }: { grid: SurfaceGrid; mobile: boolean; h
     if (!mobile) {
       // Desktop's closer camera adds real perspective (the near corner projects larger), so
       // correct the flat fit against the projected box: its size, then its place, centred
-      // in the box both ways.
+      // vertically and, as the Hero asks (`frame.heroAlign`), centred or right-anchored.
+      const anchorRight = frame.heroAlign === 1;
       for (let pass = 0; pass < 3; pass++) {
         const box = projectedBox(fit.corners, scratchPos, scale, camera, viewW, viewH);
         scale *= Math.min(slotW / box.width, slotH / box.height);
         const moved = projectedBox(fit.corners, scratchPos, scale, camera, viewW, viewH);
-        scratchPos.x += (slotX - moved.x) * worldPerPx;
+        const dx = anchorRight ? slotX + slotW / 2 - (moved.x + moved.width / 2) : slotX - moved.x;
+        scratchPos.x += dx * worldPerPx;
         scratchPos.y -= (slotY - moved.y) * worldPerPx;
       }
     }

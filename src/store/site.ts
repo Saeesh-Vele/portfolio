@@ -138,6 +138,8 @@ export const frame = {
    * viewport px — measured every frame by the Hero section (0 width = not on this page).
    */
   heroSlot: new Float32Array(4),
+  /** How the surface sits in `heroSlot` beyond phones: 0 centred, 1 right edge on its right. */
+  heroAlign: 0,
   /**
    * HERO: local → world matrix of the surface's cell grid at rest (no bob, tilt or shrink),
    * written by DataSurface; the burst particles launch from it. Column-major, as three.js.

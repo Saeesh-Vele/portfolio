@@ -16,18 +16,43 @@ const stagger = (index: number) => ({ "--i": index }) as CSSProperties;
 const pad = (value: number) => String(value).padStart(2, "0");
 /**
  * Placement of the DATA SURFACE beyond phones.
- * Side by side (HERO_SIDE_BY_SIDE): in the band from `nameGap` px right of the name to the
- * content edge, centred in it, level with the name, `height` × the name block (role line +
- * name) tall, and `clear` px clear of the HUD row above and the tagline below.
- * Stacked (tablets, narrow laptop windows): under the copy, up to `stackedWidth` of the
- * viewport wide, centred, and `clear` px clear of the bottom HUD.
+ * Side by side (HERO_SIDE_BY_SIDE): `width` of the viewport wide (projected outline), right
+ * edge on the content edge, centred on the whole copy block (query line → socials). Hard
+ * limits, met by shrinking uniformly: `textGap` px clear of any copy text, `top` px below
+ * the HUD row, `bottom` px above the bottom HUD row. The copy only fills the left columns,
+ * so the surface may stand beside the tagline, CTAs and socials.
+ * Stacked (portrait tablets, narrow windows): under the copy, up to `stackedWidth` of the
+ * viewport wide, centred, `clear` px clear of the bottom HUD.
  */
-const SURFACE = { nameGap: 120, height: 0.85, clear: 14, stackedWidth: 0.7 } as const;
+const SURFACE = { width: 0.45, textGap: 100, top: 24, bottom: 32, clear: 14, stackedWidth: 0.7 } as const;
+
+/** Top of the bottom HUD row: every part counts (its scroll cue is absolutely placed). */
+function topOf(element: HTMLElement | null) {
+  let top = window.innerHeight;
+  element?.querySelectorAll("*").forEach((part) => {
+    const box = part.getBoundingClientRect();
+    // Skip boxless parts (the `display: contents` wrapper).
+    if (box.height > 0) top = Math.min(top, box.top);
+  });
+  return top;
+}
+
+/** Right edge of the visible text inside `element` (line boxes are full width; text isn't). */
+function textRight(element: HTMLElement, range: Range) {
+  let right = -Infinity;
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (!node.textContent?.trim() || node.parentElement?.closest(".sr-only")) continue;
+    range.selectNodeContents(node);
+    right = Math.max(right, range.getBoundingClientRect().right);
+  }
+  return right;
+}
 
 /**
  * HERO. Wide screens: the copy in columns 1–6 — the query line and its typed result, the
- * name in real type, tagline, CTAs, socials — and the DATA SURFACE to its right, level with
- * the name (see SURFACE). Below `desk` (1100px, or 768px in landscape) the hero stacks: the
+ * name in real type, tagline, CTAs, socials — and the DATA SURFACE on the right, anchored to
+ * the content edge and centred on the copy block (see SURFACE). Below `desk` (1100px, or 768px in landscape) the hero stacks: the
  * surface sits under the copy — on phones filling its slot, on portrait tablets and narrow
  * windows centred at up to 70% of the width. The surface is 3D (DataSurface.tsx):
  * this section only measures the box it should fill, every frame, and hands it to the scene
@@ -37,9 +62,7 @@ const SURFACE = { nameGap: 120, height: 0.85, clear: 14, stackedWidth: 0.7 } as 
 export function Hero() {
   const content = useRef<HTMLDivElement>(null);
   const slot = useRef<HTMLDivElement>(null);
-  const name = useRef<HTMLHeadingElement>(null);
-  const role = useRef<HTMLParagraphElement>(null);
-  const tagline = useRef<HTMLParagraphElement>(null);
+  const copy = useRef<HTMLDivElement>(null);
   const hud = useRef<HTMLParagraphElement>(null);
   const footer = useRef<HTMLDivElement>(null);
   const tip = useRef<HTMLParagraphElement>(null);
@@ -66,47 +89,29 @@ export function Hero() {
         frame.heroSlot[2] = rect.width;
         frame.heroSlot[3] = rect.height;
         const viewW = window.innerWidth;
+        frame.heroAlign = 0;
         // Stacked, beyond phones: centred under the copy, clear of the bottom HUD.
         if (viewW >= MOBILE_BREAKPOINT && !sideBySide.matches) {
-          // The bottom HUD's top: its scroll cue is absolutely placed, so take every part.
-          let floor = window.innerHeight;
-          footer.current?.querySelectorAll("*").forEach((part) => {
-            const box = part.getBoundingClientRect();
-            // Skip boxless parts (the `display: contents` wrapper).
-            if (box.height > 0) floor = Math.min(floor, box.top);
-          });
-          floor -= SURFACE.clear;
-          const bottom = Math.min(rect.bottom, floor);
+          const bottom = Math.min(rect.bottom, topOf(footer.current) - SURFACE.clear);
           frame.heroSlot[1] = (rect.top + bottom) / 2;
           frame.heroSlot[2] = Math.min(viewW * SURFACE.stackedWidth, rect.width);
           frame.heroSlot[3] = Math.max(0, bottom - rect.top);
         }
         // Side by side: the box is built from the copy around it (the slot only gives the
-        // content edge). The scene fits the surface inside it, centred.
+        // content edge). The scene fits the surface inside it, right edge on its right edge.
         const container = element.parentElement;
-        if (sideBySide.matches && name.current && container) {
-          // The name's text extent, line by line (the line blocks themselves are full width).
-          let nameRight = -Infinity;
-          let top = Infinity;
-          let bottom = -Infinity;
-          for (const line of name.current.querySelectorAll<HTMLElement>(".reveal-line > span")) {
-            range.selectNodeContents(line);
-            const box = range.getBoundingClientRect();
-            nameRight = Math.max(nameRight, box.right);
-            top = Math.min(top, box.top);
-            bottom = Math.max(bottom, box.bottom);
-          }
+        if (sideBySide.matches && copy.current && container) {
+          const block = copy.current.getBoundingClientRect();
           const right = container.getBoundingClientRect().right;
-          const left = nameRight + SURFACE.nameGap;
-          const middle = (top + bottom) / 2;
-          // The name block: the typed role line down to the name's last line.
-          const block = bottom - (role.current?.getBoundingClientRect().top ?? top);
-          const above = middle - ((hud.current?.getBoundingClientRect().bottom ?? 0) + SURFACE.clear);
-          const below = (tagline.current?.getBoundingClientRect().top ?? window.innerHeight) - SURFACE.clear - middle;
-          frame.heroSlot[0] = (left + right) / 2;
+          const middle = block.top + block.height / 2;
+          const width = Math.min(viewW * SURFACE.width, right - textRight(copy.current, range) - SURFACE.textGap);
+          const above = middle - ((hud.current?.getBoundingClientRect().bottom ?? 0) + SURFACE.top);
+          const below = topOf(footer.current) - SURFACE.bottom - middle;
+          frame.heroSlot[0] = right - width / 2;
           frame.heroSlot[1] = middle;
-          frame.heroSlot[2] = Math.max(0, right - left);
-          frame.heroSlot[3] = Math.max(0, Math.min(block * SURFACE.height, 2 * Math.min(above, below)));
+          frame.heroSlot[2] = Math.max(0, width);
+          frame.heroSlot[3] = 2 * Math.max(0, Math.min(above, below));
+          frame.heroAlign = 1;
         }
       }
       const readout = tip.current;
@@ -155,14 +160,14 @@ export function Hero() {
             {/* A soft pool of background behind the copy: telemetry and dust recede. */}
             {/* Stops at the copy's right edge, short of the surface. */}
             <div aria-hidden className="scrim absolute -inset-y-20 -left-24 right-0 hidden desk:block" />
-            <div className="relative">
+            <div ref={copy} className="relative">
               <p aria-hidden className="label reveal-line text-xs normal-case">
                 <span style={stagger(0)}>
                   {queries.prompt} {hero.query}
                 </span>
               </p>
               {/* The query's result: larger, in the text colour, typed behind the caret. */}
-              <p ref={role} className="reveal-line mt-1.5 font-mono text-[0.9375rem] leading-6 tracking-[0.02em] text-text md:mt-2 md:text-base">
+              <p className="reveal-line mt-1.5 font-mono text-[0.9375rem] leading-6 tracking-[0.02em] text-text md:mt-2 md:text-base">
                 <span style={stagger(1)}>
                   <TypedRoles roles={hero.roles} />
                   <span className="sr-only">
@@ -171,7 +176,7 @@ export function Hero() {
                 </span>
               </p>
 
-              <h1 ref={name} className="mt-3 font-extrabold leading-[0.86] tracking-[-0.045em] text-[clamp(3.25rem,18.5vw,5.5rem)] md:mt-6 md:text-[clamp(3.75rem,min(9.4vw,15vh),9.75rem)]">
+              <h1 className="mt-3 font-extrabold leading-[0.86] tracking-[-0.045em] text-[clamp(3.25rem,18.5vw,5.5rem)] md:mt-6 md:text-[clamp(3.75rem,min(9.4vw,15vh),9.75rem)]">
                 <span className="reveal-line">
                   <span style={stagger(2)}>{hero.name.first}</span>
                 </span>
@@ -183,7 +188,7 @@ export function Hero() {
                 <span className="sr-only"> — {site.role}</span>
               </h1>
 
-              <p ref={tagline} className="reveal-line mt-4 text-[1.0625rem] font-medium leading-snug tracking-[-0.02em] text-text md:mt-7 md:text-[clamp(1.125rem,1.55vw,1.5rem)]">
+              <p className="reveal-line mt-4 text-[1.0625rem] font-medium leading-snug tracking-[-0.02em] text-text md:mt-7 md:text-[clamp(1.125rem,1.55vw,1.5rem)]">
                 <span style={stagger(4)}>{hero.tagline}</span>
               </p>
               <p className="reveal-line mt-2 max-w-[46ch] text-[0.8125rem] leading-relaxed text-muted md:text-[0.9375rem]">
