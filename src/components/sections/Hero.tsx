@@ -6,7 +6,7 @@ import { Clock } from "@/components/ui/Clock";
 import { ScrollChapter } from "@/components/ui/ScrollChapter";
 import { TypedRoles } from "@/components/ui/TypedRoles";
 import { a11y, hero, queries, site } from "@/content/content";
-import { MOBILE_BREAKPOINT } from "@/lib/constants";
+import { HERO_SIDE_BY_SIDE, MOBILE_BREAKPOINT } from "@/lib/constants";
 import { scrollToSection } from "@/lib/scroll";
 import { frame } from "@/store/site";
 import { HERO_CHAPTER_LENGTH, heroCopyOpacity, heroSection } from "./hero.config";
@@ -15,18 +15,21 @@ import { HERO_CHAPTER_LENGTH, heroCopyOpacity, heroSection } from "./hero.config
 const stagger = (index: number) => ({ "--i": index }) as CSSProperties;
 const pad = (value: number) => String(value).padStart(2, "0");
 /**
- * Desktop placement of the DATA SURFACE: up to this share of the viewport wide, at least
- * `nameGap` px clear of the name, and `clear` px clear of the HUD row above and the tagline
- * below.
+ * Placement of the DATA SURFACE beyond phones.
+ * Side by side (HERO_SIDE_BY_SIDE): in the band from `nameGap` px right of the name to the
+ * content edge, centred in it, level with the name, `height` × the name block (role line +
+ * name) tall, and `clear` px clear of the HUD row above and the tagline below.
+ * Stacked (tablets, narrow laptop windows): under the copy, up to `stackedWidth` of the
+ * viewport wide, centred, and `clear` px clear of the bottom HUD.
  */
-const SURFACE = { width: 0.55, nameGap: 120, clear: 20 } as const;
+const SURFACE = { nameGap: 120, height: 0.85, clear: 14, stackedWidth: 0.7 } as const;
 
 /**
- * HERO. Desktop: the copy in columns 1–6 — the query line and its typed result, the name in
- * real type, tagline, CTAs, socials — and the DATA SURFACE on the right: its right edge on
- * the content edge, its centre level with the name, ~55% of the viewport wide unless that
- * would crowd the name, and kept between the HUD row and the tagline (see SURFACE).
- * Phones: the surface fills its slot below the copy. The surface is 3D (DataSurface.tsx):
+ * HERO. Wide screens: the copy in columns 1–6 — the query line and its typed result, the
+ * name in real type, tagline, CTAs, socials — and the DATA SURFACE to its right, level with
+ * the name (see SURFACE). Below `desk` (1100px, or 768px in landscape) the hero stacks: the
+ * surface sits under the copy — on phones filling its slot, on portrait tablets and narrow
+ * windows centred at up to 70% of the width. The surface is 3D (DataSurface.tsx):
  * this section only measures the box it should fill, every frame, and hands it to the scene
  * (`frame.heroSlot`). On scroll the copy fades while the surface sinks and bursts into
  * particles.
@@ -35,8 +38,10 @@ export function Hero() {
   const content = useRef<HTMLDivElement>(null);
   const slot = useRef<HTMLDivElement>(null);
   const name = useRef<HTMLHeadingElement>(null);
+  const role = useRef<HTMLParagraphElement>(null);
   const tagline = useRef<HTMLParagraphElement>(null);
   const hud = useRef<HTMLParagraphElement>(null);
+  const footer = useRef<HTMLDivElement>(null);
   const tip = useRef<HTMLParagraphElement>(null);
 
   const onProgress = useCallback((progress: number) => {
@@ -51,6 +56,7 @@ export function Hero() {
   useEffect(() => {
     let shownCell = -1;
     const range = document.createRange();
+    const sideBySide = window.matchMedia(HERO_SIDE_BY_SIDE);
     const update = () => {
       const element = slot.current;
       if (element) {
@@ -59,10 +65,26 @@ export function Hero() {
         frame.heroSlot[1] = rect.top + rect.height / 2;
         frame.heroSlot[2] = rect.width;
         frame.heroSlot[3] = rect.height;
-        // Desktop: the box is built from the copy around it (the slot is phones only). The
-        // scene fits the surface inside it, right edge on the box's right edge.
+        const viewW = window.innerWidth;
+        // Stacked, beyond phones: centred under the copy, clear of the bottom HUD.
+        if (viewW >= MOBILE_BREAKPOINT && !sideBySide.matches) {
+          // The bottom HUD's top: its scroll cue is absolutely placed, so take every part.
+          let floor = window.innerHeight;
+          footer.current?.querySelectorAll("*").forEach((part) => {
+            const box = part.getBoundingClientRect();
+            // Skip boxless parts (the `display: contents` wrapper).
+            if (box.height > 0) floor = Math.min(floor, box.top);
+          });
+          floor -= SURFACE.clear;
+          const bottom = Math.min(rect.bottom, floor);
+          frame.heroSlot[1] = (rect.top + bottom) / 2;
+          frame.heroSlot[2] = Math.min(viewW * SURFACE.stackedWidth, rect.width);
+          frame.heroSlot[3] = Math.max(0, bottom - rect.top);
+        }
+        // Side by side: the box is built from the copy around it (the slot only gives the
+        // content edge). The scene fits the surface inside it, centred.
         const container = element.parentElement;
-        if (window.innerWidth >= MOBILE_BREAKPOINT && name.current && container) {
+        if (sideBySide.matches && name.current && container) {
           // The name's text extent, line by line (the line blocks themselves are full width).
           let nameRight = -Infinity;
           let top = Infinity;
@@ -75,14 +97,16 @@ export function Hero() {
             bottom = Math.max(bottom, box.bottom);
           }
           const right = container.getBoundingClientRect().right;
+          const left = nameRight + SURFACE.nameGap;
           const middle = (top + bottom) / 2;
-          const width = Math.min(window.innerWidth * SURFACE.width, right - nameRight - SURFACE.nameGap);
+          // The name block: the typed role line down to the name's last line.
+          const block = bottom - (role.current?.getBoundingClientRect().top ?? top);
           const above = middle - ((hud.current?.getBoundingClientRect().bottom ?? 0) + SURFACE.clear);
           const below = (tagline.current?.getBoundingClientRect().top ?? window.innerHeight) - SURFACE.clear - middle;
-          frame.heroSlot[0] = right - width / 2;
+          frame.heroSlot[0] = (left + right) / 2;
           frame.heroSlot[1] = middle;
-          frame.heroSlot[2] = width;
-          frame.heroSlot[3] = 2 * Math.max(0, Math.min(above, below));
+          frame.heroSlot[2] = Math.max(0, right - left);
+          frame.heroSlot[3] = Math.max(0, Math.min(block * SURFACE.height, 2 * Math.min(above, below)));
         }
       }
       const readout = tip.current;
@@ -123,13 +147,14 @@ export function Hero() {
           />
         </p>
 
-        {/* Copy (cols 1–6) and the surface's slot (cols 7–12); stacked on phones. Both
-            share the row on purpose, so both state their columns at every breakpoint. */}
-        <div className="absolute inset-x-(--gutter) bottom-[4.75rem] top-[calc(var(--nav-h)+3.25rem)] grid grid-cols-12 grid-rows-[auto_minmax(0,1fr)] gap-x-6 md:bottom-20 md:top-[calc(var(--nav-h)+2.5rem)] md:grid-rows-1">
-          <div className="relative col-start-1 col-end-13 row-start-1 self-center md:col-start-1 md:col-end-7">
+        {/* Copy (cols 1–6) and the surface's slot (cols 8–10) from `desk` up; stacked below
+            it. Both share the row on purpose there, so both state their columns at every
+            breakpoint. */}
+        <div className="absolute inset-x-(--gutter) bottom-[4.75rem] top-[calc(var(--nav-h)+3.25rem)] grid grid-cols-12 grid-rows-[auto_minmax(0,1fr)] gap-x-6 md:bottom-20 desk:top-[calc(var(--nav-h)+2.5rem)] desk:grid-rows-1">
+          <div className="relative col-start-1 col-end-13 row-start-1 self-center desk:col-start-1 desk:col-end-7">
             {/* A soft pool of background behind the copy: telemetry and dust recede. */}
             {/* Stops at the copy's right edge, short of the surface. */}
-            <div aria-hidden className="scrim absolute -inset-y-20 -left-24 right-0 hidden md:block" />
+            <div aria-hidden className="scrim absolute -inset-y-20 -left-24 right-0 hidden desk:block" />
             <div className="relative">
               <p aria-hidden className="label reveal-line text-xs normal-case">
                 <span style={stagger(0)}>
@@ -137,7 +162,7 @@ export function Hero() {
                 </span>
               </p>
               {/* The query's result: larger, in the text colour, typed behind the caret. */}
-              <p className="reveal-line mt-1.5 font-mono text-[0.9375rem] leading-6 tracking-[0.02em] text-text md:mt-2 md:text-base">
+              <p ref={role} className="reveal-line mt-1.5 font-mono text-[0.9375rem] leading-6 tracking-[0.02em] text-text md:mt-2 md:text-base">
                 <span style={stagger(1)}>
                   <TypedRoles roles={hero.roles} />
                   <span className="sr-only">
@@ -202,12 +227,12 @@ export function Hero() {
             </div>
           </div>
 
-          {/* Phones: the DATA SURFACE stands here (rendered by the scene). Desktop places it
-              from the copy instead (see the frame loop above). */}
+          {/* Stacked (below `desk`): the DATA SURFACE stands here (rendered by the scene).
+              Side by side places it from the copy instead (see the frame loop above). */}
           <div
             ref={slot}
             aria-hidden
-            className="col-start-1 col-end-13 row-start-2 mt-3 min-h-0 md:col-start-8 md:col-end-11 md:row-start-1 md:mt-0"
+            className="col-start-1 col-end-13 row-start-2 mt-3 min-h-0 desk:col-start-8 desk:col-end-11 desk:row-start-1 desk:mt-0"
           />
         </div>
 
@@ -220,6 +245,7 @@ export function Hero() {
 
         {/* HUD — bottom corners + scroll cue */}
         <div
+          ref={footer}
           className="fade-in absolute inset-x-(--gutter) bottom-5 flex items-end justify-between gap-4 md:bottom-6"
           style={stagger(9)}
         >

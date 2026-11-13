@@ -43,13 +43,13 @@ const MARGIN = 0.75;
 const LABEL_BAND = 1.15;
 /**
  * Resting orientation: tilted toward the viewer (x) and turned (y). Phones: isometric-ish,
- * the front-right corner leading. Desktop: a low front three-quarter view (~27° above the
- * plate, so the bar sides show) with the long axis level, turned just enough (−2°) to
- * catch the rim light; perspective then keeps the "NOW" corner level with the front-left.
+ * the front-right corner leading. Desktop (square grid): corner-on, turned 45° so the "NOW"
+ * corner (where the two labelled edges meet) points at the viewer and both sides recede
+ * symmetrically — a diamond footprint — seen from 30° above the plate.
  */
 const BASE_ROTATION = {
   mobile: new THREE.Euler(THREE.MathUtils.degToRad(35), THREE.MathUtils.degToRad(-30), 0),
-  desktop: new THREE.Euler(THREE.MathUtils.degToRad(27), THREE.MathUtils.degToRad(-2), 0),
+  desktop: new THREE.Euler(THREE.MathUtils.degToRad(30), THREE.MathUtils.degToRad(-45), 0),
 };
 /**
  * Share of the slot the object may fill. Lower on phones: the fit is orthographic, and in a
@@ -507,7 +507,7 @@ function Surface({ grid, mobile, halo }: { grid: SurfaceGrid; mobile: boolean; h
     const [slotX, slotY, slotW, slotH] = frame.heroSlot;
     const e = reducedMotion || !timeline ? 0 : heroExit(sectionAt(timeline, "hero", frame.progress));
     const fade = plateFade(e);
-    if (slotW < 1 || surfaceGone(e)) {
+    if (slotW < 1 || slotH < 1 || surfaceGone(e)) {
       group.visible = false;
       frame.surfaceHover.opacity = 0;
       return;
@@ -522,14 +522,13 @@ function Surface({ grid, mobile, halo }: { grid: SurfaceGrid; mobile: boolean; h
     scratchPos.set((slotX - viewW / 2) * worldPerPx, (viewH / 2 - slotY) * worldPerPx, 0);
     if (!mobile) {
       // Desktop's closer camera adds real perspective (the near corner projects larger), so
-      // correct the flat fit against the projected box: its size, then its place — the
-      // right edge on the box's right edge (the content edge), centred vertically.
-      const right = slotX + slotW / 2;
+      // correct the flat fit against the projected box: its size, then its place, centred
+      // in the box both ways.
       for (let pass = 0; pass < 3; pass++) {
         const box = projectedBox(fit.corners, scratchPos, scale, camera, viewW, viewH);
         scale *= Math.min(slotW / box.width, slotH / box.height);
         const moved = projectedBox(fit.corners, scratchPos, scale, camera, viewW, viewH);
-        scratchPos.x += (right - (moved.x + moved.width / 2)) * worldPerPx;
+        scratchPos.x += (slotX - moved.x) * worldPerPx;
         scratchPos.y -= (slotY - moved.y) * worldPerPx;
       }
     }

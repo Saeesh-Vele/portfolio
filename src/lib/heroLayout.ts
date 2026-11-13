@@ -31,10 +31,10 @@ export interface SurfaceGrid {
 }
 
 /**
- * Desktop 22 × 14, phones 14 × 10, and 12 × 8 on the lowest particle tier (weak phones, or a
- * desktop that adaptive quality has dropped all the way).
+ * Desktop: a square 18 × 18 (seen corner-on, so the diamond is symmetric), 12 × 12 on the
+ * lowest particle tier. Phones: 14 × 10, and 12 × 8 on the lowest tier.
  */
 export function surfaceGrid(isMobile: boolean, lowestTier: boolean): SurfaceGrid {
-  if (lowestTier) return { cols: 12, rows: 8 };
-  return isMobile ? { cols: 14, rows: 10 } : { cols: 22, rows: 14 };
+  if (isMobile) return lowestTier ? { cols: 12, rows: 8 } : { cols: 14, rows: 10 };
+  return lowestTier ? { cols: 12, rows: 12 } : { cols: 18, rows: 18 };
 }

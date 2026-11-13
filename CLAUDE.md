@@ -129,8 +129,8 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
    read. Text panels always stay legible (contrast ≥ 4.5:1); particles behind text can dim
    locally.
 9. HERO DATA SURFACE (Phase 6, `DataSurface.tsx`): a real lit object, not particles. One
-   InstancedMesh of RoundedBoxGeometry bars (22 × 14 desktop, 14 × 10 phones, 12 × 8 on the
-   lowest tier) whose heights come from a per-instance `aBar` attribute (height, glow, drop,
+   InstancedMesh of RoundedBoxGeometry bars (18 × 18 desktop / 12 × 12 on its lowest tier;
+   14 × 10 phones / 12 × 8 on theirs) whose heights come from a per-instance `aBar` attribute (height, glow, drop,
    footprint: the top half of the unit box moves, so bevels never stretch);
    MeshPhysicalMaterial + clearcoat, patched for a height-mapped side tone (graphite
    `#12161C` at the foot → steel `#2A323C` at the tallest tops) and the glacier top cap on
@@ -140,15 +140,18 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
    `#0D1117` with a hairline accent edge and canvas-texture axis ticks; no contact shadow.
    Key + glacier rim lights and a drei `<Environment>` built from `<Lightformer>`s (no HDR
    downloads). It is placed in screen space: the Hero measures the box it should fill every
-   frame into `frame.heroSlot` (phones: the slot below the copy; desktop: a box built from
-   the copy — right edge on the content edge, centre level with the name's text, up to 55%
-   of the viewport wide but ≥ 120px clear of the name, and clear of the HUD row and the
-   tagline; `SURFACE` in `Hero.tsx`), and the surface maps it to the z = 0 plane through the
-   resting hero camera (`heroCamera(isMobile)` in `heroLayout.ts`: desktop sits closer with a
-   wider lens for perspective, and its fit is corrected against the projected box, right
-   edge anchored). Resting orientation per device (`BASE_ROTATION`): phones isometric-ish
-   (35° / −30°); desktop a low, level front three-quarter view (27° / −2°), so the bar
-   sides show and the front edge stays level. Heights: two octaves of simplex + a travelling wave; pointer/touch →
+   frame into `frame.heroSlot` (`SURFACE` in `Hero.tsx`). Phones: the slot below the copy.
+   Side by side (the `desk:` custom variant: ≥ 1100px, or ≥ 768px in landscape;
+   `HERO_SIDE_BY_SIDE`): the band from 120px right of the name to the content edge, the
+   surface centred in it, level with the name's centre, ~85% of the name block's height
+   (role line + name), clear of the HUD row and the tagline. Stacked beyond phones (portrait
+   tablets, narrow windows): centred under the copy, up to 70% of the viewport wide, clear
+   of the bottom HUD. The surface maps the box to the z = 0 plane through the resting hero
+   camera (`heroCamera(isMobile)` in `heroLayout.ts`: beyond phones it sits closer with a
+   wider lens for perspective, and the fit is corrected against the projected box).
+   Resting orientation (`BASE_ROTATION`): phones isometric-ish (35° / −30°); beyond phones
+   corner-on (30° / −45°): the "NOW" corner, where the two labelled edges meet, points at
+   the viewer and the square grid reads as a symmetric diamond. Heights: two octaves of simplex + a travelling wave; pointer/touch →
    damped ripple + tilt. Scroll exit: `heroExit(at)` in `hero.config.ts` drives both the
    front-to-back sink (`barSink`) and the particle burst (`uBurst`); the plate fades (and
    shrinks a little) while the back rows are still sinking (`plateFade`), and each collapsed
@@ -283,9 +286,9 @@ Per-frame values (smoothed progress, energy, pointer) live in the mutable `frame
 - HERO (Phase 6, built — replaces the Phase 1 particle NAME, which is retired and deleted):
   DOM copy in cols 1–6 (muted 12px query line, the typed role in Geist Mono 16px / 15px
   phones in the text colour, "Saeesh" in Geist heavy and "Vele" in Instrument Serif italic
-  accent as the real h1, tagline, CTAs, socials row) and the DATA SURFACE on the right
-  (desktop: right edge on the content edge, level with the name, ~55% of the viewport wide
-  or less to stay 120px clear of it; below the copy on phones, ~86% width). The field holds SURFACE
+  accent as the real h1, tagline, CTAs, socials row) and the DATA SURFACE: side by side
+  (`desk:`) a corner-on diamond centred in the band right of the name, level with it;
+  stacked below the copy on portrait tablets (~70% width) and phones (~86% width). The field holds SURFACE
   (ambient depth + the burst particles, `dim` 0.7). On scroll the surface sinks front to
   back, its particles burst up and join the field, the camera pushes on into NOISE, then
   STATS as before. Desktop hover shows a mono readout over the hovered bar.

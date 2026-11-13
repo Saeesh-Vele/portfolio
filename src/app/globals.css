@@ -16,6 +16,16 @@
   --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* The hero's side-by-side layout (copy | DATA SURFACE): from 1100px, or from 768px in a
+   landscape window (a stacked hero there leaves no height for the surface). Portrait
+   tablets and narrow windows stack. Keep in sync with HERO_SIDE_BY_SIDE in
+   src/lib/constants.ts. */
+@custom-variant desk {
+  @media (min-width: 68.75rem), (min-width: 48rem) and (orientation: landscape) {
+    @slot;
+  }
+}
+
 :root {
   --gutter: 1rem;
   --nav-h: 3.5rem;

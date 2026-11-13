@@ -11,6 +11,11 @@ export const COLORS = {
 } as const;
 
 export const MOBILE_BREAKPOINT = 768;
+/**
+ * When the hero lays the DATA SURFACE beside the copy (the `desk:` variant in globals.css):
+ * from 1100px, or from 768px in a landscape window. Otherwise it stacks.
+ */
+export const HERO_SIDE_BY_SIDE = "(min-width: 1100px), (min-width: 768px) and (orientation: landscape)";
 
 /** Sizes of the per-column / per-station uniform arrays in the particle shader. */
 export const MAX_STATS = 8;
