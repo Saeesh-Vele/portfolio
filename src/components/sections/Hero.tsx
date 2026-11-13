@@ -14,13 +14,18 @@ import { HERO_CHAPTER_LENGTH, heroCopyOpacity, heroSection } from "./hero.config
 /** Stagger index for the reveal utilities in globals.css. */
 const stagger = (index: number) => ({ "--i": index }) as CSSProperties;
 const pad = (value: number) => String(value).padStart(2, "0");
-/** Desktop: share of the viewport width the DATA SURFACE spans. */
-const SURFACE_WIDTH = 0.55;
+/**
+ * Desktop placement of the DATA SURFACE: up to this share of the viewport wide, at least
+ * `nameGap` px clear of the name, and `clear` px clear of the HUD row above and the tagline
+ * below.
+ */
+const SURFACE = { width: 0.55, nameGap: 120, clear: 20 } as const;
 
 /**
  * HERO. Desktop: the copy in columns 1–6 — the query line and its typed result, the name in
- * real type, tagline, CTAs, socials — and the DATA SURFACE on the right: centred on column
- * 9 and level with the name, ~55% of the viewport wide (it may bleed off the right edge).
+ * real type, tagline, CTAs, socials — and the DATA SURFACE on the right: its right edge on
+ * the content edge, its centre level with the name, ~55% of the viewport wide unless that
+ * would crowd the name, and kept between the HUD row and the tagline (see SURFACE).
  * Phones: the surface fills its slot below the copy. The surface is 3D (DataSurface.tsx):
  * this section only measures the box it should fill, every frame, and hands it to the scene
  * (`frame.heroSlot`). On scroll the copy fades while the surface sinks and bursts into
@@ -30,6 +35,8 @@ export function Hero() {
   const content = useRef<HTMLDivElement>(null);
   const slot = useRef<HTMLDivElement>(null);
   const name = useRef<HTMLHeadingElement>(null);
+  const tagline = useRef<HTMLParagraphElement>(null);
+  const hud = useRef<HTMLParagraphElement>(null);
   const tip = useRef<HTMLParagraphElement>(null);
 
   const onProgress = useCallback((progress: number) => {
@@ -43,6 +50,7 @@ export function Hero() {
   // The slot → the scene, and the hover readout ← the scene, once per frame.
   useEffect(() => {
     let shownCell = -1;
+    const range = document.createRange();
     const update = () => {
       const element = slot.current;
       if (element) {
@@ -51,12 +59,30 @@ export function Hero() {
         frame.heroSlot[1] = rect.top + rect.height / 2;
         frame.heroSlot[2] = rect.width;
         frame.heroSlot[3] = rect.height;
-        // Desktop: the slot marks column 9 and the row's height; the surface is wider than
-        // it and sits level with the name block.
-        if (window.innerWidth >= MOBILE_BREAKPOINT && name.current) {
-          const title = name.current.getBoundingClientRect();
-          frame.heroSlot[1] = title.top + title.height / 2;
-          frame.heroSlot[2] = window.innerWidth * SURFACE_WIDTH;
+        // Desktop: the box is built from the copy around it (the slot is phones only). The
+        // scene fits the surface inside it, right edge on the box's right edge.
+        const container = element.parentElement;
+        if (window.innerWidth >= MOBILE_BREAKPOINT && name.current && container) {
+          // The name's text extent, line by line (the line blocks themselves are full width).
+          let nameRight = -Infinity;
+          let top = Infinity;
+          let bottom = -Infinity;
+          for (const line of name.current.querySelectorAll<HTMLElement>(".reveal-line > span")) {
+            range.selectNodeContents(line);
+            const box = range.getBoundingClientRect();
+            nameRight = Math.max(nameRight, box.right);
+            top = Math.min(top, box.top);
+            bottom = Math.max(bottom, box.bottom);
+          }
+          const right = container.getBoundingClientRect().right;
+          const middle = (top + bottom) / 2;
+          const width = Math.min(window.innerWidth * SURFACE.width, right - nameRight - SURFACE.nameGap);
+          const above = middle - ((hud.current?.getBoundingClientRect().bottom ?? 0) + SURFACE.clear);
+          const below = (tagline.current?.getBoundingClientRect().top ?? window.innerHeight) - SURFACE.clear - middle;
+          frame.heroSlot[0] = right - width / 2;
+          frame.heroSlot[1] = middle;
+          frame.heroSlot[2] = width;
+          frame.heroSlot[3] = 2 * Math.max(0, Math.min(above, below));
         }
       }
       const readout = tip.current;
@@ -85,6 +111,7 @@ export function Hero() {
       <div ref={content} className="relative h-full">
         {/* HUD — top right. The top-left readout is the global SectionHud. */}
         <p
+          ref={hud}
           className="label fade-in absolute right-(--gutter) top-[calc(var(--nav-h)+0.75rem)]"
           style={stagger(8)}
         >
@@ -131,7 +158,7 @@ export function Hero() {
                 <span className="sr-only"> — {site.role}</span>
               </h1>
 
-              <p className="reveal-line mt-4 text-[1.0625rem] font-medium leading-snug tracking-[-0.02em] text-text md:mt-7 md:text-[clamp(1.125rem,1.55vw,1.5rem)]">
+              <p ref={tagline} className="reveal-line mt-4 text-[1.0625rem] font-medium leading-snug tracking-[-0.02em] text-text md:mt-7 md:text-[clamp(1.125rem,1.55vw,1.5rem)]">
                 <span style={stagger(4)}>{hero.tagline}</span>
               </p>
               <p className="reveal-line mt-2 max-w-[46ch] text-[0.8125rem] leading-relaxed text-muted md:text-[0.9375rem]">
@@ -175,7 +202,8 @@ export function Hero() {
             </div>
           </div>
 
-          {/* The DATA SURFACE stands here (rendered by the scene). */}
+          {/* Phones: the DATA SURFACE stands here (rendered by the scene). Desktop places it
+              from the copy instead (see the frame loop above). */}
           <div
             ref={slot}
             aria-hidden

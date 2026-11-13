@@ -41,8 +41,16 @@ const HALO = { size: 2.8, lift: 0.9, strength: 0.85 };
 /** Plate border around the grid, plus the band the axis labels sit in (front + right). */
 const MARGIN = 0.75;
 const LABEL_BAND = 1.15;
-/** Isometric-ish view: tilted toward the viewer, turned so the front-right corner leads. */
-const BASE_ROTATION = new THREE.Euler(THREE.MathUtils.degToRad(35), THREE.MathUtils.degToRad(-30), 0);
+/**
+ * Resting orientation: tilted toward the viewer (x) and turned (y). Phones: isometric-ish,
+ * the front-right corner leading. Desktop: a low front three-quarter view (~27° above the
+ * plate, so the bar sides show) with the long axis level, turned just enough (−2°) to
+ * catch the rim light; perspective then keeps the "NOW" corner level with the front-left.
+ */
+const BASE_ROTATION = {
+  mobile: new THREE.Euler(THREE.MathUtils.degToRad(35), THREE.MathUtils.degToRad(-30), 0),
+  desktop: new THREE.Euler(THREE.MathUtils.degToRad(27), THREE.MathUtils.degToRad(-2), 0),
+};
 /**
  * Share of the slot the object may fill. Lower on phones: the fit is orthographic, and in a
  * tall, narrow view the near (front) corner projects noticeably larger.
@@ -96,7 +104,7 @@ function plateBox({ cols, rows }: SurfaceGrid) {
  * The object's local bounding box centre, its half extents once rotated into view (at
  * scale 1), and its rotated corners (relative to the centre), for fitting it into its slot.
  */
-function fitMetrics(grid: SurfaceGrid) {
+function fitMetrics(grid: SurfaceGrid, rotation: THREE.Euler) {
   const plate = plateBox(grid);
   const minY = -PLATE_THICKNESS;
   const maxY = H_MAX * 0.85;
@@ -107,7 +115,7 @@ function fitMetrics(grid: SurfaceGrid) {
   for (const x of [plate.minX, plate.maxX]) {
     for (const y of [minY, maxY]) {
       for (const z of [plate.minZ, plate.maxZ]) {
-        const corner = new THREE.Vector3(x, y, z).sub(center).applyEuler(BASE_ROTATION);
+        const corner = new THREE.Vector3(x, y, z).sub(center).applyEuler(rotation);
         corners.push(corner);
         halfX = Math.max(halfX, Math.abs(corner.x));
         halfY = Math.max(halfY, Math.abs(corner.y));
@@ -310,7 +318,8 @@ function Surface({ grid, mobile, halo }: { grid: SurfaceGrid; mobile: boolean; h
   const { cols, rows } = grid;
   const count = cols * rows;
   const plate = useMemo(() => plateBox(grid), [grid]);
-  const fit = useMemo(() => fitMetrics(grid), [grid]);
+  const rotation = mobile ? BASE_ROTATION.mobile : BASE_ROTATION.desktop;
+  const fit = useMemo(() => fitMetrics(grid, rotation), [grid, rotation]);
 
   const root = useRef<THREE.Group>(null);
   const tilt = useRef<THREE.Group>(null);
@@ -513,18 +522,20 @@ function Surface({ grid, mobile, halo }: { grid: SurfaceGrid; mobile: boolean; h
     scratchPos.set((slotX - viewW / 2) * worldPerPx, (viewH / 2 - slotY) * worldPerPx, 0);
     if (!mobile) {
       // Desktop's closer camera adds real perspective (the near corner projects larger), so
-      // correct the flat fit against the projected box: its size, then its centre.
-      for (let pass = 0; pass < 2; pass++) {
+      // correct the flat fit against the projected box: its size, then its place — the
+      // right edge on the box's right edge (the content edge), centred vertically.
+      const right = slotX + slotW / 2;
+      for (let pass = 0; pass < 3; pass++) {
         const box = projectedBox(fit.corners, scratchPos, scale, camera, viewW, viewH);
         scale *= Math.min(slotW / box.width, slotH / box.height);
         const moved = projectedBox(fit.corners, scratchPos, scale, camera, viewW, viewH);
-        scratchPos.x += (slotX - moved.x) * worldPerPx;
+        scratchPos.x += (right - (moved.x + moved.width / 2)) * worldPerPx;
         scratchPos.y -= (slotY - moved.y) * worldPerPx;
       }
     }
 
     // Rest matrix of the cell grid, for the burst particles: no bob, tilt or shrink.
-    scratchMatrix.compose(scratchPos, scratchQuat.setFromEuler(BASE_ROTATION), scratchScale.setScalar(scale));
+    scratchMatrix.compose(scratchPos, scratchQuat.setFromEuler(rotation), scratchScale.setScalar(scale));
     scratchMatrix.multiply(scratchOffset.makeTranslation(-fit.center.x, -fit.center.y, -fit.center.z));
     scratchMatrix.toArray(frame.surfaceMatrix);
     frame.surfaceSize[0] = cols - 1;
@@ -549,7 +560,7 @@ function Surface({ grid, mobile, halo }: { grid: SurfaceGrid; mobile: boolean; h
     const towardY = pointing ? THREE.MathUtils.clamp(frame.pointerY - centerY, -1, 1) : 0;
     s.tiltY = THREE.MathUtils.damp(s.tiltY, towardX * TILT.yaw, TILT.damping, dt);
     s.tiltX = THREE.MathUtils.damp(s.tiltX, -towardY * TILT.pitch, TILT.damping, dt);
-    tilt.current.rotation.set(BASE_ROTATION.x + s.tiltX, BASE_ROTATION.y + s.tiltY, 0);
+    tilt.current.rotation.set(rotation.x + s.tiltX, rotation.y + s.tiltY, 0);
 
     let hovered = -1;
     if (pointing) {
@@ -667,7 +678,7 @@ function Surface({ grid, mobile, halo }: { grid: SurfaceGrid; mobile: boolean; h
 
   return (
     <group ref={root} visible={false}>
-      <group ref={tilt} rotation={BASE_ROTATION}>
+      <group ref={tilt} rotation={rotation}>
         <group position={[-fit.center.x, -fit.center.y, -fit.center.z]}>
           <group ref={bob}>
             <group ref={plateGroup}>
