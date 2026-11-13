@@ -130,17 +130,26 @@ decorative stock icons (small functional icons are fine) · lorem ipsum.
    locally.
 9. HERO DATA SURFACE (Phase 6, `DataSurface.tsx`): a real lit object, not particles. One
    InstancedMesh of RoundedBoxGeometry bars (22 × 14 desktop, 14 × 10 phones, 12 × 8 on the
-   lowest tier) whose heights come from a per-instance `aBar` attribute (height, glow, sink:
-   the top half of the unit box moves, so bevels never stretch); MeshPhysicalMaterial
-   graphite + clearcoat, patched for the glacier top cap on the tallest ~10%; a dark plate
-   with a hairline accent edge and canvas-texture axis ticks; key + glacier rim lights and a
-   drei `<Environment>` built from `<Lightformer>`s (no HDR downloads); ContactShadows
-   rendered once. It is placed in screen space: the Hero measures its slot every frame into
-   `frame.heroSlot`, and the surface maps it to the z = 0 plane through the resting hero
-   camera. Heights: two octaves of simplex + a travelling wave; pointer/touch → damped ripple
-   + tilt. Scroll exit: `heroExit(at)` in `hero.config.ts` drives both the front-to-back
-   sink (`barSink`) and the particle burst (`uBurst`), then the plate fades and shrinks.
-   Particles use `depthTest: true` so dust behind the object stays behind it.
+   lowest tier) whose heights come from a per-instance `aBar` attribute (height, glow, drop,
+   footprint: the top half of the unit box moves, so bevels never stretch);
+   MeshPhysicalMaterial + clearcoat, patched for a height-mapped side tone (graphite
+   `#12161C` at the foot → steel `#2A323C` at the tallest tops) and the glacier top cap on
+   the tallest ~18% (emissive scaled by height, brightest at the cap centre). Where there is
+   no bloom (phones, lower tiers, bloom disallowed) each lit cap also gets an additive
+   camera-facing halo quad (a second InstancedMesh sharing `aBar`). A thin, unlit plate in
+   `#0D1117` with a hairline accent edge and canvas-texture axis ticks; no contact shadow.
+   Key + glacier rim lights and a drei `<Environment>` built from `<Lightformer>`s (no HDR
+   downloads). It is placed in screen space: the Hero measures the box it should fill every
+   frame into `frame.heroSlot` (phones: the slot below the copy; desktop: centred on column
+   9, level with the name, 55% of the viewport wide), and the surface maps it to the z = 0
+   plane through the resting hero camera (`heroCamera(isMobile)` in `heroLayout.ts`: desktop
+   sits closer with a wider lens for perspective, and its fit is corrected against the
+   projected box). Heights: two octaves of simplex + a travelling wave; pointer/touch →
+   damped ripple + tilt. Scroll exit: `heroExit(at)` in `hero.config.ts` drives both the
+   front-to-back sink (`barSink`) and the particle burst (`uBurst`); the plate fades (and
+   shrinks a little) while the back rows are still sinking (`plateFade`), and each collapsed
+   bar shrinks away as its particles launch. Particles use `depthTest: true` so dust behind
+   the object stays behind it.
 10. LIVE TELEMETRY (`Telemetry.tsx`): the ambient background — 6 faint time-series traces
    (3–8% opacity) scrolling right to left at different speeds / depths (scroll parallax),
    faint gridlines and an occasional glacier ping. Drawn in the existing scene, first, on
@@ -254,7 +263,9 @@ Per-frame values (smoothed progress, energy, pointer) live in the mutable `frame
 - Featured project order, which is also the order of the WORK chapter's stops: RogRakshak,
   ShikshaSetu, AURORA, PredictX, BH.DSA, NeuroPhysio. The graph's tech nodes, edges, stops and
   camera keyframes are all derived from `featuredProjects`; reorder or edit stacks in
-  `content.ts` and they follow. `moreWork` items appear only in the All-work index.
+  `content.ts` and they follow. On desktop the overview camera rides up while the title card
+  shows (`TITLE_CLEARANCE` in `work.config.ts`) so no project node passes under the card.
+  `moreWork` items appear only in the All-work index.
 - CLUSTERS is a short pinned chapter (1.5 viewports; 2.2 on phones, which step through the
   columns one panel at a time over a complete 2 × 2 of all four shapes, the panel being read
   lighting its own). The clusters are placed in screen space, not world space: the
@@ -266,9 +277,11 @@ Per-frame values (smoothed progress, energy, pointer) live in the mutable `frame
   uniforms run on the way in (`at` < 0), from `numeralLift` in the section config. HORIZON is the calmest state: `ParticleField` holds scroll energy and drift down
   while it is active.
 - HERO (Phase 6, built — replaces the Phase 1 particle NAME, which is retired and deleted):
-  DOM copy in cols 1–6 (query line + typed role, "Saeesh" in Geist heavy and "Vele" in
-  Instrument Serif italic accent as the real h1, tagline, CTAs, socials row) and the DATA
-  SURFACE in cols 7–12 (below the copy on phones, ~92% width). The field holds SURFACE
+  DOM copy in cols 1–6 (muted 12px query line, the typed role in Geist Mono 16px / 15px
+  phones in the text colour, "Saeesh" in Geist heavy and "Vele" in Instrument Serif italic
+  accent as the real h1, tagline, CTAs, socials row) and the DATA SURFACE on the right
+  (desktop: ~55% of the viewport wide, centred on column 9, level with the name; below the
+  copy on phones, ~86% width). The field holds SURFACE
   (ambient depth + the burst particles, `dim` 0.7). On scroll the surface sinks front to
   back, its particles burst up and join the field, the camera pushes on into NOISE, then
   STATS as before. Desktop hover shows a mono readout over the hovered bar.

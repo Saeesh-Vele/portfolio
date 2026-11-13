@@ -72,9 +72,9 @@ function AboutStage({ pinned }: { pinned: boolean }) {
     <div
       ref={root}
       data-stats-stage
-      // The section label is the global SectionHud (top left); on phones the copy starts
-      // just below its line.
-      className={`relative flex flex-col px-(--gutter) pb-5 pt-[calc(var(--nav-h)+2.625rem)] md:pb-9 md:pt-[calc(var(--nav-h)+2rem)] ${
+      // The section label is the global SectionHud (top left, its line ends at nav + 1.75rem);
+      // the query line starts a clear ~1.4rem below it.
+      className={`relative flex flex-col px-(--gutter) pb-5 pt-[calc(var(--nav-h)+3.125rem)] md:pb-9 md:pt-[calc(var(--nav-h)+3.25rem)] ${
         pinned ? "h-full" : "min-h-svh"
       }`}
     >

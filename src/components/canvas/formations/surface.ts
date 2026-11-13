@@ -1,6 +1,6 @@
 import { AUX_KIND } from "@/lib/constants";
 import { mulberry32 } from "@/lib/device";
-import { HERO_CAMERA } from "@/lib/heroLayout";
+import { heroCamera } from "@/lib/heroLayout";
 import type { Formation } from "./index";
 
 /** Share of particles that wait inside the DATA SURFACE's bars and burst out on scroll. */
@@ -24,7 +24,8 @@ export const surface: Formation = (count, viewport) => {
   const aux = new Float32Array(count * 4);
   const rand = mulberry32(0x5eed02);
   const burstCount = Math.floor(count * BURST_SHARE);
-  const tanHalf = Math.tan((HERO_CAMERA.fov * Math.PI) / 360);
+  const camera = heroCamera(viewport.isMobile);
+  const tanHalf = Math.tan((camera.fov * Math.PI) / 360);
 
   for (let i = 0; i < count; i++) {
     const o = i * 3;
@@ -43,7 +44,7 @@ export const surface: Formation = (count, viewport) => {
     const halfH = depth * tanHalf * 1.15;
     positions[o] = (rand() * 2 - 1) * halfH * viewport.aspect;
     positions[o + 1] = (rand() * 2 - 1) * halfH;
-    positions[o + 2] = HERO_CAMERA.distance - depth;
+    positions[o + 2] = camera.distance - depth;
   }
   return { positions, aux };
 };

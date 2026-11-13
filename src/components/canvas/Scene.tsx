@@ -4,7 +4,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { COLORS, QUALITY_SESSION_KEY } from "@/lib/constants";
 import { usePageVisible } from "@/lib/hooks";
-import { HERO_CAMERA } from "@/lib/heroLayout";
+import { heroCamera } from "@/lib/heroLayout";
 import { frame, useSite } from "@/store/site";
 import { CameraRig } from "./CameraRig";
 import { DataSurface } from "./DataSurface";
@@ -138,10 +138,11 @@ export default function Scene() {
       frameloop={visible ? "always" : "never"}
       gl={{ antialias: false, alpha: false, powerPreference: "high-performance" }}
       camera={{
-        fov: HERO_CAMERA.fov,
+        // The rig takes over on the first frame (per device); this is only the start.
+        fov: heroCamera(false).fov,
         near: 0.1,
         far: 120,
-        position: [0, 0, HERO_CAMERA.distance],
+        position: [0, 0, heroCamera(false).distance],
       }}
     >
       <color attach="background" args={[COLORS.bg]} />

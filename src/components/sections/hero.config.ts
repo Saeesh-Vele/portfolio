@@ -1,4 +1,4 @@
-import { HERO_CAMERA } from "@/lib/heroLayout";
+import { heroCamera } from "@/lib/heroLayout";
 import type { SectionDef } from "@/lib/sections";
 
 /** Viewport heights the hero stays pinned for while the surface sinks and the camera leaves. */
@@ -30,8 +30,15 @@ export function heroExit(at: number | null): number {
 export const barSink = (v: number, e: number) =>
   smoothstep(v * SURFACE_WAVE.stagger, v * SURFACE_WAVE.stagger + SURFACE_WAVE.duration, e);
 
-/** 0..1 fade of the plate, edge, labels and shadow once the last row has sunk. */
-export const plateFade = (e: number) => smoothstep(0.7, 1, e);
+/**
+ * 0..1 fade of the plate, its edge and labels. It runs while the back rows are still
+ * sinking (the last row is down at e = 0.75), so the burst reads against open space and a
+ * half-faded plate never lingers like a sheet of glass.
+ */
+export const plateFade = (e: number) => smoothstep(0.28, 0.58, e);
+
+/** True once nothing of the surface is left to draw: the last row is down, the plate gone. */
+export const surfaceGone = (e: number) => e >= SURFACE_WAVE.stagger + SURFACE_WAVE.duration + 0.03;
 
 /** Hero copy opacity at pin progress `p`: readable at rest, gone early in the exit. */
 export const heroCopyOpacity = (p: number) => 1 - smoothstep(0.02, 0.24, p);
@@ -50,15 +57,19 @@ export const heroSection: SectionDef = {
   dim: 0.7,
   // After the burst the particles are raw noise again, before the next section claims them.
   extraHolds: [{ formation: "noise", hold: [0.58, 0.64], dim: 0 }],
-  keyframes: () => [
-    { at: 0, position: [0, 0, HERO_CAMERA.distance], target: [0, 0, 0], fov: HERO_CAMERA.fov },
-    // Repeated: the camera is perfectly still while the hero is read.
-    { at: 0.02, position: [0, 0, HERO_CAMERA.distance], target: [0, 0, 0], fov: HERO_CAMERA.fov },
-    // A slow creep while the surface sinks, then forward through the burst into the noise.
-    { at: 0.3, position: [0.3, 0.25, 8.4], target: [0.6, 0.4, 0], fov: HERO_CAMERA.fov + 2 },
-    { at: 0.56, position: [0, 0.6, -3.5], target: [0, 0.3, -14], fov: 44 },
-  ],
-  reducedKeyframes: () => [
-    { at: 0, position: [0, 0, HERO_CAMERA.distance], target: [0, 0, 0], fov: HERO_CAMERA.fov },
-  ],
+  keyframes: (viewport) => {
+    const { distance, fov } = heroCamera(viewport.isMobile);
+    return [
+      { at: 0, position: [0, 0, distance], target: [0, 0, 0], fov },
+      // Repeated: the camera is perfectly still while the hero is read.
+      { at: 0.02, position: [0, 0, distance], target: [0, 0, 0], fov },
+      // A slow creep while the surface sinks, then forward through the burst into the noise.
+      { at: 0.3, position: [0.3, 0.25, distance - 1.6], target: [0.6, 0.4, 0], fov: fov + 2 },
+      { at: 0.56, position: [0, 0.6, -3.5], target: [0, 0.3, -14], fov: 44 },
+    ];
+  },
+  reducedKeyframes: (viewport) => {
+    const { distance, fov } = heroCamera(viewport.isMobile);
+    return [{ at: 0, position: [0, 0, distance], target: [0, 0, 0], fov }];
+  },
 };

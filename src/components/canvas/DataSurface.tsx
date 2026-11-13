@@ -2,13 +2,13 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
-import { ContactShadows, Environment, Lightformer } from "@react-three/drei";
+import { Environment, Lightformer } from "@react-three/drei";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { barSink, heroExit, plateFade } from "@/components/sections/hero.config";
+import { barSink, heroExit, plateFade, surfaceGone } from "@/components/sections/hero.config";
 import { hero } from "@/content/content";
 import { COLORS } from "@/lib/constants";
-import { HERO_CAMERA, surfaceGrid, visibleSize, type SurfaceGrid } from "@/lib/heroLayout";
+import { heroCamera, surfaceGrid, visibleSize, type SurfaceGrid } from "@/lib/heroLayout";
 import { sectionAt } from "@/lib/timeline";
 import { frame, useSite } from "@/store/site";
 import { createSimplex2D } from "./simplex";
@@ -17,15 +17,27 @@ import { createSimplex2D } from "./simplex";
  * Local units: one grid cell = 1. The cell grid is centred on the origin, x across, z front
  * (+) to back (-), bars standing on the plate's top face at y = 0.
  */
-const GRAPHITE = "#12161C";
-const PLATE_COLOR = "#0A0D11";
+/** Bar side tone by height: graphite at the foot, lighter steel toward the tallest tops. */
+const TONE = { low: "#12161C", high: "#2A323C" };
+/** A touch lighter than the page, so the base reads as a thin slab, not a hole. */
+const PLATE_COLOR = "#0D1117";
 /** Bar footprint and bevel. */
-const FOOT = 0.74;
-const BEVEL = 0.07;
+const FOOT = 0.8;
+const BEVEL = 0.075;
 /** Bar heights. */
 const H_MIN = 0.22;
 const H_MAX = 3.4;
-const PLATE_THICKNESS = 0.34;
+const PLATE_THICKNESS = 0.14;
+/** Share of bars (the tallest) whose top caps glow. */
+const GLOW_SHARE = 0.18;
+/**
+ * Cap glow (× glacier). With bloom the bloom pass spreads it; without (phones, low tiers)
+ * the core stays lower so the cap reads glacier rather than white, and an additive halo
+ * quad per lit cap gives it its glow.
+ */
+const CAP_GLOW = { bloom: 2.6, halo: 1.6 };
+/** Halo quad side, in cells, and how far it sits toward the lens off its cap. */
+const HALO = { size: 2.8, lift: 0.9, strength: 0.85 };
 /** Plate border around the grid, plus the band the axis labels sit in (front + right). */
 const MARGIN = 0.75;
 const LABEL_BAND = 1.15;
@@ -35,7 +47,7 @@ const BASE_ROTATION = new THREE.Euler(THREE.MathUtils.degToRad(35), THREE.MathUt
  * Share of the slot the object may fill. Lower on phones: the fit is orthographic, and in a
  * tall, narrow view the near (front) corner projects noticeably larger.
  */
-const FILL = { desktop: 0.96, mobile: 0.86 };
+const FILL = { desktop: 1, mobile: 0.86 };
 /** Pointer tilt (radians at the edge of the screen) and its damping. */
 const TILT = { yaw: THREE.MathUtils.degToRad(5), pitch: THREE.MathUtils.degToRad(3.5), damping: 3 };
 /** Very slow float, in local units. */
@@ -58,6 +70,8 @@ const smoothstep = (a: number, b: number, v: number) => {
   return t * t * (3 - 2 * t);
 };
 const pad = (value: number) => String(value).padStart(2, "0");
+/** 0..1 for the intro rise as a whole (halos fade in with the bars). */
+const rise01 = (intro: number) => smoothstep(0.4, 1 + INTRO.stagger, intro);
 
 const scratchMatrix = new THREE.Matrix4();
 const scratchScale = new THREE.Vector3();
@@ -79,8 +93,8 @@ function plateBox({ cols, rows }: SurfaceGrid) {
 }
 
 /**
- * The object's local bounding box centre and its half extents once rotated into view (at
- * scale 1), for fitting it into its DOM slot.
+ * The object's local bounding box centre, its half extents once rotated into view (at
+ * scale 1), and its rotated corners (relative to the centre), for fitting it into its slot.
  */
 function fitMetrics(grid: SurfaceGrid) {
   const plate = plateBox(grid);
@@ -89,49 +103,146 @@ function fitMetrics(grid: SurfaceGrid) {
   const center = new THREE.Vector3(plate.cx, (minY + maxY) / 2, plate.cz);
   let halfX = 0;
   let halfY = 0;
-  const corner = new THREE.Vector3();
+  const corners: THREE.Vector3[] = [];
   for (const x of [plate.minX, plate.maxX]) {
     for (const y of [minY, maxY]) {
       for (const z of [plate.minZ, plate.maxZ]) {
-        corner.set(x, y, z).sub(center).applyEuler(BASE_ROTATION);
+        const corner = new THREE.Vector3(x, y, z).sub(center).applyEuler(BASE_ROTATION);
+        corners.push(corner);
         halfX = Math.max(halfX, Math.abs(corner.x));
         halfY = Math.max(halfY, Math.abs(corner.y));
       }
     }
   }
-  return { center, halfX, halfY };
+  return { center, halfX, halfY, corners };
 }
 
-/** Patches MeshPhysicalMaterial: per-bar height / sink from `aBar`, and the glacier top cap. */
+/**
+ * Screen box (px: centre x, centre y, width, height) of the rotated corners at `scale`,
+ * placed at `position` on the z = 0 plane, seen from the resting hero camera.
+ */
+function projectedBox(
+  corners: THREE.Vector3[],
+  position: THREE.Vector3,
+  scale: number,
+  camera: { distance: number; fov: number },
+  viewW: number,
+  viewH: number,
+) {
+  const k = viewH / 2 / Math.tan((camera.fov * Math.PI) / 360);
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const corner of corners) {
+    const depth = camera.distance - (position.z + corner.z * scale);
+    const x = viewW / 2 + ((position.x + corner.x * scale) / depth) * k;
+    const y = viewH / 2 - ((position.y + corner.y * scale) / depth) * k;
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y);
+    maxY = Math.max(maxY, y);
+  }
+  return { x: (minX + maxX) / 2, y: (minY + maxY) / 2, width: maxX - minX, height: maxY - minY };
+}
+
+/**
+ * Patches MeshPhysicalMaterial: per-bar height / drop / footprint from `aBar`, the
+ * height-mapped side tone and the glacier top cap.
+ */
 function barMaterial(glow: { value: THREE.Color }) {
   const material = new THREE.MeshPhysicalMaterial({
-    color: GRAPHITE,
-    roughness: 0.35,
-    metalness: 0.12,
+    roughness: 0.3,
+    metalness: 0.28,
     clearcoat: 1,
-    clearcoatRoughness: 0.16,
+    clearcoatRoughness: 0.1,
   });
+  const toneLow = { value: new THREE.Color(TONE.low) };
+  const toneHigh = { value: new THREE.Color(TONE.high) };
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uGlacier = glow;
+    shader.uniforms.uToneLow = toneLow;
+    shader.uniforms.uToneHigh = toneHigh;
     shader.vertexShader = shader.vertexShader
-      .replace("#include <common>", "#include <common>\nattribute vec3 aBar;\nvarying float vGlow;")
+      .replace(
+        "#include <common>",
+        "#include <common>\nattribute vec4 aBar;\nvarying float vGlow;\nvarying float vTone;\nvarying vec2 vCap;",
+      )
       .replace(
         "#include <begin_vertex>",
         /* glsl */ `#include <begin_vertex>
-        // aBar.x = height, aBar.y = top-cap glow, aBar.z = sink. The top half of the unit box
-        // moves up to the bar's height, so the bevels keep their shape at any height.
+        // aBar.x = height, aBar.y = top-cap glow, aBar.z = drop, aBar.w = footprint. The top
+        // half of the unit box moves up to the bar's height, so the bevels keep their shape.
         transformed.y += step(0.0, position.y) * (aBar.x - 1.0) - aBar.z;
-        vGlow = aBar.y * smoothstep(0.55, 0.95, objectNormal.y);`,
+        transformed.xz *= aBar.w;
+        // Height above the plate (the box spans -0.5..0.5 before the instance's +0.5).
+        vTone = clamp((transformed.y + 0.5 + aBar.z) / ${H_MAX.toFixed(2)}, 0.0, 1.0);
+        vGlow = aBar.y * smoothstep(0.55, 0.95, objectNormal.y);
+        vCap = position.xz / ${(FOOT / 2).toFixed(3)};`,
       );
     shader.fragmentShader = shader.fragmentShader
-      .replace("#include <common>", "#include <common>\nuniform vec3 uGlacier;\nvarying float vGlow;")
+      .replace(
+        "#include <common>",
+        "#include <common>\nuniform vec3 uGlacier;\nuniform vec3 uToneLow;\nuniform vec3 uToneHigh;\nvarying float vGlow;\nvarying float vTone;\nvarying vec2 vCap;",
+      )
+      .replace(
+        "#include <color_fragment>",
+        "#include <color_fragment>\ndiffuseColor.rgb = mix(uToneLow, uToneHigh, vTone);",
+      )
       .replace(
         "#include <emissivemap_fragment>",
-        "#include <emissivemap_fragment>\ntotalEmissiveRadiance += uGlacier * vGlow;",
+        /* glsl */ `#include <emissivemap_fragment>
+        // Brightest at the cap's centre, falling off toward its bevel.
+        float core = 1.0 - smoothstep(0.1, 1.05, length(vCap));
+        totalEmissiveRadiance += uGlacier * vGlow * (0.55 + 0.7 * core);`,
       );
   };
   material.customProgramCacheKey = () => "data-surface-bar";
   return material;
+}
+
+/**
+ * Soft additive glow for lit caps where there is no bloom: one camera-facing quad per bar,
+ * centred on its cap and pulled toward the lens so the cap never cuts it. Unlit bars
+ * collapse their quad to a point (no fragments). Shares the bars' `aBar` attribute.
+ */
+function haloMaterial(color: THREE.Color) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uColor: { value: color },
+      uOpacity: { value: 1 },
+    },
+    vertexShader: /* glsl */ `
+      attribute vec4 aBar;
+      varying vec2 vUv;
+      varying float vGlow;
+      void main() {
+        vGlow = aBar.y;
+        vUv = position.xy * 2.0;
+        // The cap's centre: the instance stands the unit box on y = 0, its top at aBar.x.
+        vec4 centre = modelViewMatrix * instanceMatrix * vec4(0.0, aBar.x - 0.5 - aBar.z, 0.0, 1.0);
+        float scale = length(modelViewMatrix[0].xyz);
+        centre.xyz += normalize(-centre.xyz) * ${HALO.lift.toFixed(2)} * scale;
+        centre.xy += position.xy * ${HALO.size.toFixed(2)} * scale * aBar.w * step(0.002, aBar.y);
+        gl_Position = projectionMatrix * centre;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 uColor;
+      uniform float uOpacity;
+      varying vec2 vUv;
+      varying float vGlow;
+      void main() {
+        float d = length(vUv);
+        float a = exp(-d * d * 5.5) * (1.0 - smoothstep(0.7, 1.0, d));
+        gl_FragColor = vec4(uColor * a * vGlow * uOpacity, 1.0);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    toneMapped: false,
+  });
 }
 
 /** Orientation of a label plane lying on the plate: its x / y axes → the given local axes. */
@@ -195,7 +306,7 @@ interface Ripple {
   age: number;
 }
 
-function Surface({ grid, mobile }: { grid: SurfaceGrid; mobile: boolean }) {
+function Surface({ grid, mobile, halo }: { grid: SurfaceGrid; mobile: boolean; halo: boolean }) {
   const { cols, rows } = grid;
   const count = cols * rows;
   const plate = useMemo(() => plateBox(grid), [grid]);
@@ -205,32 +316,41 @@ function Surface({ grid, mobile }: { grid: SurfaceGrid; mobile: boolean }) {
   const tilt = useRef<THREE.Group>(null);
   const bob = useRef<THREE.Group>(null);
   const bars = useRef<THREE.InstancedMesh>(null);
-  const shadow = useRef<THREE.Group>(null);
-  const [placed, setPlaced] = useState(false);
+  const halos = useRef<THREE.InstancedMesh>(null);
+  const plateGroup = useRef<THREE.Group>(null);
 
-  const glow = useMemo(() => ({ value: new THREE.Color(COLORS.glacier).multiplyScalar(2.4) }), []);
+  const glow = useMemo(
+    () => ({ value: new THREE.Color(COLORS.glacier).multiplyScalar(halo ? CAP_GLOW.halo : CAP_GLOW.bloom) }),
+    [halo],
+  );
+  const barAttribute = useMemo(() => {
+    const attribute = new THREE.InstancedBufferAttribute(new Float32Array(count * 4), 4);
+    attribute.setUsage(THREE.DynamicDrawUsage);
+    return attribute;
+  }, [count]);
   const barGeometry = useMemo(() => {
     const geometry = new RoundedBoxGeometry(FOOT, 1, FOOT, mobile ? 1 : 2, BEVEL);
-    const attribute = new THREE.InstancedBufferAttribute(new Float32Array(count * 3), 3);
-    attribute.setUsage(THREE.DynamicDrawUsage);
-    geometry.setAttribute("aBar", attribute);
+    geometry.setAttribute("aBar", barAttribute);
     return geometry;
-  }, [count, mobile]);
+  }, [barAttribute, mobile]);
   const barMat = useMemo(() => barMaterial(glow), [glow]);
+  const haloGeometry = useMemo(() => {
+    const geometry = new THREE.PlaneGeometry(1, 1);
+    geometry.setAttribute("aBar", barAttribute);
+    return geometry;
+  }, [barAttribute]);
+  const haloMat = useMemo(
+    // The shader writes display values directly: glacier as authored (sRGB).
+    () => haloMaterial(new THREE.Color(COLORS.glacier).convertLinearToSRGB().multiplyScalar(HALO.strength)),
+    [],
+  );
   const plateGeometry = useMemo(
-    () => new RoundedBoxGeometry(plate.width, PLATE_THICKNESS, plate.depth, 2, 0.12),
+    () => new RoundedBoxGeometry(plate.width, PLATE_THICKNESS, plate.depth, 2, 0.05),
     [plate],
   );
   const plateMat = useMemo(
-    () =>
-      new THREE.MeshPhysicalMaterial({
-        color: PLATE_COLOR,
-        roughness: 0.75,
-        metalness: 0,
-        clearcoat: 0.25,
-        clearcoatRoughness: 0.5,
-        transparent: true,
-      }),
+    // Unlit: the slab is exactly its colour under any light, never a grey sheet.
+    () => new THREE.MeshBasicMaterial({ color: PLATE_COLOR, transparent: true, toneMapped: false }),
     [],
   );
   const edge = useMemo(() => {
@@ -255,18 +375,20 @@ function Surface({ grid, mobile }: { grid: SurfaceGrid; mobile: boolean }) {
   useEffect(
     () => () => {
       barGeometry.dispose();
+      haloGeometry.dispose();
       plateGeometry.dispose();
       edge.geometry.dispose();
       (edge.material as THREE.Material).dispose();
     },
-    [barGeometry, plateGeometry, edge],
+    [barGeometry, haloGeometry, plateGeometry, edge],
   );
   useEffect(
     () => () => {
       barMat.dispose();
+      haloMat.dispose();
       plateMat.dispose();
     },
-    [barMat, plateMat],
+    [barMat, haloMat, plateMat],
   );
 
   // Axis labels, drawn in Geist Mono once it has loaded.
@@ -321,29 +443,31 @@ function Surface({ grid, mobile }: { grid: SurfaceGrid; mobile: boolean }) {
 
   // Bars stand on fixed cells; only their heights change (the aBar attribute).
   useLayoutEffect(() => {
-    const mesh = bars.current;
-    if (!mesh) return;
     const matrix = new THREE.Matrix4();
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        matrix.makeTranslation(c - (cols - 1) / 2, 0.5, (rows - 1) / 2 - r);
-        mesh.setMatrixAt(r * cols + c, matrix);
+    for (const mesh of [bars.current, halos.current]) {
+      if (!mesh) continue;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          matrix.makeTranslation(c - (cols - 1) / 2, 0.5, (rows - 1) / 2 - r);
+          mesh.setMatrixAt(r * cols + c, matrix);
+        }
       }
+      mesh.instanceMatrix.needsUpdate = true;
     }
-    mesh.instanceMatrix.needsUpdate = true;
-  }, [cols, rows]);
+  }, [cols, rows, halo]);
 
   // What the frame loop mutates (uniform-like material values, the height attribute),
   // reached through a ref: the memoised objects themselves are never written after render.
   const live = useRef<{
-    barGeometry: THREE.BufferGeometry;
-    plateMat: THREE.MeshPhysicalMaterial;
+    barAttribute: THREE.InstancedBufferAttribute;
+    plateMat: THREE.MeshBasicMaterial;
+    haloMat: THREE.ShaderMaterial;
     edge: THREE.LineLoop;
     labelMats: THREE.MeshBasicMaterial[];
   } | null>(null);
   useLayoutEffect(() => {
-    live.current = { barGeometry, plateMat, edge, labelMats };
-  }, [barGeometry, plateMat, edge, labelMats]);
+    live.current = { barAttribute, plateMat, haloMat, edge, labelMats };
+  }, [barAttribute, plateMat, haloMat, edge, labelMats]);
 
   const state = useRef({
     time: 0,
@@ -358,7 +482,6 @@ function Surface({ grid, mobile }: { grid: SurfaceGrid; mobile: boolean }) {
     tiltX: 0,
     tiltY: 0,
     raycaster: new THREE.Raycaster(),
-    placed: false,
   });
 
   useFrame((three, delta) => {
@@ -366,7 +489,8 @@ function Surface({ grid, mobile }: { grid: SurfaceGrid; mobile: boolean }) {
     const group = root.current;
     const mesh = bars.current;
     if (!live.current || !group || !mesh || !tilt.current || !bob.current) return;
-    const { barGeometry: geometry, plateMat: plateMaterial, edge: edgeLine, labelMats: labelMaterials } = live.current;
+    const { barAttribute: attribute, plateMat: plateMaterial, haloMat: haloShader, edge: edgeLine, labelMats: labelMaterials } =
+      live.current;
     const dt = Math.min(delta, 0.05);
     const { reducedMotion, loaded, timeline } = useSite.getState();
 
@@ -374,18 +498,30 @@ function Surface({ grid, mobile }: { grid: SurfaceGrid; mobile: boolean }) {
     const [slotX, slotY, slotW, slotH] = frame.heroSlot;
     const e = reducedMotion || !timeline ? 0 : heroExit(sectionAt(timeline, "hero", frame.progress));
     const fade = plateFade(e);
-    if (slotW < 1 || fade >= 1) {
+    if (slotW < 1 || surfaceGone(e)) {
       group.visible = false;
       frame.surfaceHover.opacity = 0;
       return;
     }
     group.visible = true;
     const { width: viewW, height: viewH } = three.size;
-    const worldPerPx = visibleSize({ aspect: 1 }, HERO_CAMERA.distance, HERO_CAMERA.fov).height / viewH;
-    const scale =
+    const camera = heroCamera(mobile);
+    const worldPerPx = visibleSize({ aspect: 1 }, camera.distance, camera.fov).height / viewH;
+    let scale =
       Math.min((slotW * worldPerPx) / (2 * fit.halfX), (slotH * worldPerPx) / (2 * fit.halfY)) *
       (mobile ? FILL.mobile : FILL.desktop);
     scratchPos.set((slotX - viewW / 2) * worldPerPx, (viewH / 2 - slotY) * worldPerPx, 0);
+    if (!mobile) {
+      // Desktop's closer camera adds real perspective (the near corner projects larger), so
+      // correct the flat fit against the projected box: its size, then its centre.
+      for (let pass = 0; pass < 2; pass++) {
+        const box = projectedBox(fit.corners, scratchPos, scale, camera, viewW, viewH);
+        scale *= Math.min(slotW / box.width, slotH / box.height);
+        const moved = projectedBox(fit.corners, scratchPos, scale, camera, viewW, viewH);
+        scratchPos.x += (slotX - moved.x) * worldPerPx;
+        scratchPos.y -= (slotY - moved.y) * worldPerPx;
+      }
+    }
 
     // Rest matrix of the cell grid, for the burst particles: no bob, tilt or shrink.
     scratchMatrix.compose(scratchPos, scratchQuat.setFromEuler(BASE_ROTATION), scratchScale.setScalar(scale));
@@ -394,17 +530,15 @@ function Surface({ grid, mobile }: { grid: SurfaceGrid; mobile: boolean }) {
     frame.surfaceSize[0] = cols - 1;
     frame.surfaceSize[1] = rows - 1;
 
-    if (!s.placed) {
-      s.placed = true;
-      setPlaced(true);
-    }
-
     // --- time, intro rise, float
     if (!reducedMotion) s.time += dt;
     else s.time = 12;
     s.intro = reducedMotion ? 1 + INTRO.stagger : loaded ? s.intro + dt / INTRO.duration : 0;
     group.position.copy(scratchPos);
-    group.scale.setScalar(scale * (1 - 0.2 * fade));
+    // The bars stay at their rest scale (the burst particles launch from it); only the
+    // plate shrinks a little as it fades.
+    group.scale.setScalar(scale);
+    plateGroup.current?.scale.setScalar(1 - 0.12 * fade);
     bob.current.position.y = reducedMotion ? 0 : Math.sin(s.time * BOB.speed) * BOB.amplitude;
 
     // --- pointer: tilt toward it, and find the cell under it
@@ -465,10 +599,9 @@ function Surface({ grid, mobile }: { grid: SurfaceGrid; mobile: boolean }) {
     frame.surfaceSize[2] = sum / count;
     s.sorted.set(s.heights);
     s.sorted.sort();
-    const q90 = s.sorted[Math.floor(count * 0.9)];
+    const lit = s.sorted[Math.floor(count * (1 - GLOW_SHARE))];
     const top = s.sorted[count - 1];
 
-    const attribute = geometry.getAttribute("aBar") as THREE.InstancedBufferAttribute;
     const out = attribute.array as Float32Array;
     for (let r = 0; r < rows; r++) {
       const sink = barSink(r / (rows - 1), e);
@@ -488,38 +621,37 @@ function Surface({ grid, mobile }: { grid: SurfaceGrid; mobile: boolean }) {
         }
         s.press[i] = THREE.MathUtils.damp(s.press[i], i === hovered ? 1 : 0, PRESS.rate, dt);
         h = Math.max(H_MIN, h - dip * RIPPLE.amplitude - s.press[i] * PRESS.depth);
-        // Exit: the bar collapses to a tile, then drops below the plate's top face.
+        // Exit: the bar collapses to a tile, which shrinks away as its particles launch.
         const collapsed = H_MIN + (h - H_MIN) * (1 - smoothstep(0, 0.8, sink));
+        // Glow scales with height above the lit threshold.
         const glowAmount =
-          smoothstep(q90 - 0.06, q90 + 0.04, base) * (0.35 + 0.65 * clamp01((base - q90) / Math.max(top - q90, 1e-3)));
-        out[i * 3] = collapsed;
-        out[i * 3 + 1] = glowAmount * rise * (1 - sink);
-        out[i * 3 + 2] = smoothstep(0.5, 1, sink) * (H_MIN + 0.3);
+          smoothstep(lit - 0.06, lit + 0.04, base) * (0.25 + 0.75 * clamp01((base - lit) / Math.max(top - lit, 1e-3)));
+        const o = i * 4;
+        out[o] = collapsed;
+        out[o + 1] = glowAmount * rise * (1 - sink);
+        out[o + 2] = smoothstep(0.5, 1, sink) * 0.2;
+        out[o + 3] = 1 - smoothstep(0.6, 1, sink);
       }
     }
     attribute.needsUpdate = true;
-    mesh.visible = e < 0.78;
 
-    // --- fade the plate, its edge, labels and shadow once the bars are gone
+    // --- fade the plate, its edge and labels while the back rows are still going
     plateMaterial.opacity = 1 - fade;
     // A fading plate must not keep hiding the particles behind it.
     plateMaterial.depthWrite = fade < 0.01;
+    if (plateGroup.current) plateGroup.current.visible = fade < 1;
     (edgeLine.material as THREE.LineBasicMaterial).opacity = 0.55 * (1 - fade);
     labelMaterials.forEach((material) => {
       material.opacity = 0.5 * (1 - fade);
     });
-    shadow.current?.traverse((child) => {
-      if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshBasicMaterial) {
-        child.material.opacity = 0.4 * (1 - fade);
-      }
-    });
+    haloShader.uniforms.uOpacity.value = rise01(s.intro);
 
     // --- hover readout (desktop): screen position of the hovered bar's top
     const hover = frame.surfaceHover;
     if (hovered >= 0 && frame.pointerTouch === 0) {
       const c = hovered % cols;
       const r = Math.floor(hovered / cols);
-      scratchHit.set(c - (cols - 1) / 2, out[hovered * 3], (rows - 1) / 2 - r);
+      scratchHit.set(c - (cols - 1) / 2, out[hovered * 4], (rows - 1) / 2 - r);
       bob.current.localToWorld(scratchHit).project(three.camera);
       hover.x = (scratchHit.x * 0.5 + 0.5) * viewW;
       hover.y = (0.5 - scratchHit.y * 0.5) * viewH;
@@ -538,50 +670,46 @@ function Surface({ grid, mobile }: { grid: SurfaceGrid; mobile: boolean }) {
       <group ref={tilt} rotation={BASE_ROTATION}>
         <group position={[-fit.center.x, -fit.center.y, -fit.center.z]}>
           <group ref={bob}>
-            <mesh
-              geometry={plateGeometry}
-              material={plateMat}
-              position={[plate.cx, -PLATE_THICKNESS / 2, plate.cz]}
-            />
-            <primitive object={edge} />
-            {axes?.front ? (
+            <group ref={plateGroup}>
               <mesh
-                material={labelMats[0]}
-                position={[0, 0.006, rows / 2 + 0.2 + LABEL_BAND / 2]}
-                quaternion={labelOrientation.front}
-              >
-                <planeGeometry args={[cols, LABEL_BAND]} />
-              </mesh>
-            ) : null}
-            {axes?.side ? (
-              <mesh
-                material={labelMats[1]}
-                position={[cols / 2 + 0.2 + LABEL_BAND / 2, 0.006, 0]}
-                quaternion={labelOrientation.side}
-              >
-                <planeGeometry args={[rows, LABEL_BAND]} />
-              </mesh>
-            ) : null}
+                geometry={plateGeometry}
+                material={plateMat}
+                position={[plate.cx, -PLATE_THICKNESS / 2, plate.cz]}
+              />
+              <primitive object={edge} />
+              {axes?.front ? (
+                <mesh
+                  material={labelMats[0]}
+                  position={[0, 0.006, rows / 2 + 0.2 + LABEL_BAND / 2]}
+                  quaternion={labelOrientation.front}
+                >
+                  <planeGeometry args={[cols, LABEL_BAND]} />
+                </mesh>
+              ) : null}
+              {axes?.side ? (
+                <mesh
+                  material={labelMats[1]}
+                  position={[cols / 2 + 0.2 + LABEL_BAND / 2, 0.006, 0]}
+                  quaternion={labelOrientation.side}
+                >
+                  <planeGeometry args={[rows, LABEL_BAND]} />
+                </mesh>
+              ) : null}
+            </group>
             <instancedMesh
               ref={bars}
               args={[barGeometry, barMat, count]}
               frustumCulled={false}
             />
+            {halo ? (
+              <instancedMesh
+                ref={halos}
+                args={[haloGeometry, haloMat, count]}
+                frustumCulled={false}
+                renderOrder={1}
+              />
+            ) : null}
           </group>
-          {/* Rendered once, after placement: the object floats over its still shadow. */}
-          {placed ? (
-            <ContactShadows
-              ref={shadow}
-              position={[plate.cx, -PLATE_THICKNESS - 0.9, plate.cz]}
-              scale={[plate.width * 1.2, plate.depth * 1.2]}
-              far={2.6}
-              blur={4.5}
-              opacity={0.4}
-              resolution={mobile ? 256 : 512}
-              frames={1}
-              color="#000000"
-            />
-          ) : null}
         </group>
       </group>
     </group>
@@ -597,6 +725,10 @@ function Surface({ grid, mobile }: { grid: SurfaceGrid; mobile: boolean }) {
 export function DataSurface() {
   const viewport = useSite((state) => state.viewport);
   const tier = useSite((state) => state.tier);
+  const bloomAllowed = useSite((state) => state.bloomAllowed);
+  const mobile = viewport?.isMobile ?? false;
+  // Where there is no bloom pass (see Scene), the lit caps get their halo quads.
+  const halo = mobile || tier !== "desktop" || !bloomAllowed;
   const grid = useMemo(
     () => (viewport ? surfaceGrid(viewport.isMobile, tier === "mobile") : null),
     [viewport, tier],
@@ -604,27 +736,25 @@ export function DataSurface() {
 
   return (
     <>
-      <ambientLight intensity={0.12} />
-      {/* Key light: high, front left. Rim: glacier, from behind on the right. */}
-      <directionalLight position={[-4, 7, 7]} intensity={2.6} />
-      <directionalLight position={[9, 3, -6]} intensity={3.2} color={COLORS.glacier} />
+      <ambientLight intensity={0.14} />
+      {/* Key light: high, front left. Rim: glacier, from behind on the right, raking the
+          bevels so their edges catch. */}
+      <directionalLight position={[-4, 7, 7]} intensity={4.2} />
+      <directionalLight position={[9, 3, -6]} intensity={6.5} color={COLORS.glacier} />
       {/*
         Studio strips for the clearcoat. From the hero camera, the bar tops (tilted 35°
         toward it) reflect the space above and slightly behind; the front faces reflect the
         floor (left dark, for form); the right faces reflect the back right (a glacier strip).
       */}
-      <Environment resolution={128} frames={1} environmentIntensity={0.8}>
-        <Lightformer form="rect" intensity={1.3} position={[0, 7, -3]} rotation-x={Math.PI / 2.4} scale={[16, 1.6, 1]} />
-        <Lightformer form="rect" intensity={1.4} position={[-8, 2, 2]} rotation-y={Math.PI / 2} scale={[8, 2, 1]} />
-        <Lightformer form="rect" intensity={1.8} color={COLORS.glacier} position={[7, -1.5, -6]} rotation-y={-Math.PI / 3} scale={[7, 1.2, 1]} />
-        <Lightformer form="ring" intensity={0.8} position={[0, 3, 8]} scale={4} />
+      <Environment resolution={128} frames={1} environmentIntensity={1.3}>
+        {/* Narrow, so its reflection is a soft band across the tops, not a uniform grey. */}
+        <Lightformer form="rect" intensity={1.6} position={[0, 7, -3]} rotation-x={Math.PI / 2.4} scale={[16, 0.9, 1]} />
+        <Lightformer form="rect" intensity={1.8} position={[-8, 2, 2]} rotation-y={Math.PI / 2} scale={[8, 2.4, 1]} />
+        <Lightformer form="rect" intensity={2.6} color={COLORS.glacier} position={[7, -1.5, -6]} rotation-y={-Math.PI / 3} scale={[7, 1.6, 1]} />
+        <Lightformer form="ring" intensity={1.1} position={[0, 3, 8]} scale={4} />
       </Environment>
       {grid ? (
-        <Surface
-          key={`${grid.cols}x${grid.rows}`}
-          grid={grid}
-          mobile={viewport?.isMobile ?? false}
-        />
+        <Surface key={`${grid.cols}x${grid.rows}`} grid={grid} mobile={mobile} halo={halo} />
       ) : null}
     </>
   );

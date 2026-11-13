@@ -60,6 +60,14 @@ const smoothstep = (a: number, b: number, v: number) => {
 /** The title card ("Shipped, not just built.") holds over the overview, then fades. */
 const TITLE_FADE = [0.06, 0.1] as const;
 
+/**
+ * Desktop: while the title card shows (top left), the overview camera and its target ride
+ * this far up (world units), so the graph sits lower in the frame and no project node passes
+ * under the card's heading. Eased out by the last overview keyframe. Phones need none: their
+ * card is short and the graph already starts below it.
+ */
+const TITLE_CLEARANCE = { desktop: 1.6, mobile: 0 } as const;
+
 /** Opacity of the title card at pin progress q. */
 export const titleCardOpacity = (q: number) => 1 - smoothstep(TITLE_FADE[0], TITLE_FADE[1], q);
 
@@ -108,16 +116,19 @@ export const workSection: SectionDef = {
     // Far enough back that the node's edges and nearest tech nodes share the frame with it.
     const diveDistance = mobile ? 8.6 : 9;
 
-    const overview = (q: number, degrees: number, lift: number): CameraKeyframe => {
+    const clearance = mobile ? TITLE_CLEARANCE.mobile : TITLE_CLEARANCE.desktop;
+    /** `raise`: share of the title clearance (camera and target move up together). */
+    const overview = (q: number, degrees: number, lift: number, raise = 0): CameraKeyframe => {
       const angle = (degrees * Math.PI) / 180;
+      const up = raise * clearance;
       return {
         at: toAt(q, viewport),
         position: add(GRAPH_CENTER, [
           Math.sin(angle) * overviewDistance,
-          lift,
+          lift + up,
           Math.cos(angle) * overviewDistance,
         ]),
-        target: GRAPH_CENTER,
+        target: add(GRAPH_CENTER, [0, up, 0]),
         fov,
       };
     };
@@ -151,9 +162,9 @@ export const workSection: SectionDef = {
     };
 
     const keyframes: CameraKeyframe[] = [
-      overview(0, -24, 2.2),
-      overview(FIRST_ARRIVAL * 0.4, -10, 1.4),
-      overview(FIRST_ARRIVAL * 0.72, 2, 0.9),
+      overview(0, -24, 2.2, 1),
+      overview(FIRST_ARRIVAL * 0.4, -10, 1.4, 1),
+      overview(FIRST_ARRIVAL * 0.72, 2, 0.9, 0.35),
     ];
     for (let k = 0; k < PROJECT_COUNT; k++) {
       const { arrive, leave } = projectStop(k);

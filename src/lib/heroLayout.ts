@@ -4,8 +4,19 @@ import type { Viewport } from "@/lib/sections";
  * The hero camera rests here, looking at the origin. The DATA SURFACE stands on the z = 0
  * plane, placed from its DOM slot through this camera (see DataSurface.tsx), so its screen
  * position is exact while the camera is at rest.
+ *
+ * Desktop sits closer with a wider lens (the z = 0 plane frames the same height, ~6.3
+ * units), so the larger surface gets more perspective: its bars read as chunky, near
+ * objects. Phones keep the longer, flatter view their composition was tuned for.
  */
-export const HERO_CAMERA = { distance: 10, fov: 35 } as const;
+const HERO_CAMERAS = {
+  desktop: { distance: 7.5, fov: 45.5 },
+  mobile: { distance: 10, fov: 35 },
+} as const;
+
+export function heroCamera(isMobile: boolean) {
+  return isMobile ? HERO_CAMERAS.mobile : HERO_CAMERAS.desktop;
+}
 
 /** World-space size of the visible rectangle at `distance` from a camera with `fov`. */
 export function visibleSize(viewport: Pick<Viewport, "aspect">, distance: number, fov: number) {
